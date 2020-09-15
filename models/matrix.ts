@@ -1,5 +1,30 @@
-import { Cell, DIRECTION, Point } from "../interfaces";
+import { Cell, Direction, Point } from "../interfaces";
 import Model from "./index";
+export class Matrix extends Model {
+  m: Cell[];
+  constructor() {
+    super();
+    this.m = Array.from({ length: 16 }, () => ({ number: 0, score: 0 }));
+    this.emit("init");
+  }
+  add(point: Point) {
+    const value = getOneOrTwo();
+    this.mutate(point, { number: value });
+    this.emit("add");
+  }
+  move(direction: Direction) {}
+  mutate(point: Point, value: Partial<Cell>) {
+    const idx = toIdx(point);
+    this.m = Object.assign([], this.m, { [idx]: { ...this.m[idx], ...value } });
+  }
+  lockCellsForDirection(direction: Direction) {}
+  unlockCells() {}
+  iterate(callback) {
+    this.m.forEach((cell, idx) => {
+      callback([...toRowCol(idx), idx, cell]);
+    });
+  }
+}
 
 function getRandomInt(max: number = 1) {
   return Math.floor(Math.random() * max);
@@ -15,26 +40,4 @@ function toRowCol(idx): Point {
 }
 function toIdx([row, col]: Point) {
   return row * 4 + col;
-}
-export class Matrix extends Model {
-  m: Cell[];
-  constructor() {
-    super();
-    this.m = Array.from({ length: 16 }, () => ({ number: 0, score: 0 }));
-  }
-  add(p: Point) {
-    const value = getOneOrTwo();
-    this.mutate(p, { number: value });
-    this.emit("add");
-  }
-  move(direction: DIRECTION) {}
-  mutate(p: Point, value: Partial<Cell>) {
-    const idx = toIdx(p);
-    this.m = Object.assign([], this.m, { [idx]: { ...this.m[idx], ...value } });
-  }
-  iterate(callback) {
-    this.m.forEach((cell, idx) => {
-      callback([...toRowCol(idx), cell]);
-    });
-  }
 }
