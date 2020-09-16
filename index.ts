@@ -1,4 +1,7 @@
 import Board from "./Board";
-import "./index.css";
+import "./styles/index.css";
+import "./styles/cards.css";
 
-const board = new Board();
+(function () {
+  new Board();
+})();
