@@ -7,7 +7,8 @@ export class Matrix extends Model {
     this.m = Array.from({ length: 16 }, () => ({ number: 0, score: 0 }));
     this.emit("init");
   }
-  add(point: Point) {
+  add() {
+    const point = getRandomPoint();
     const value = getOneOrTwo();
     this.mutate(point, { number: value });
     this.emit("add");
