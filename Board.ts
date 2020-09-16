@@ -28,6 +28,7 @@ export default class Board {
         changeCellNode(node, cell.number);
       }
     });
+    this.snapshot = this.matrix.m;
   }
 }
 function changeCellNode(node: HTMLDivElement, value: number) {
