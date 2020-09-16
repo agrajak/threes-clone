@@ -16,10 +16,25 @@ export class Matrix extends Model {
   move(direction: Direction) {}
   mutate(point: Point, value: Partial<Cell>) {
     const idx = toIdx(point);
-    this.m = Object.assign([], this.m, { [idx]: { ...this.m[idx], ...value } });
+    this.m = Object.assign([], this.m, {
+      [idx]: { ...this.at(idx), ...value },
+    });
   }
-  lockCellsForDirection(direction: Direction) {}
-  unlockCells() {}
+  at(param: number | Point) {
+    const idx = typeof param == "number" ? param : toIdx(param);
+    return this.m[idx];
+  }
+  getMoveableCellIndices(direction: Direction) {
+    const [dx, dy] = direction;
+    const indices: number[] = [];
+    this.iterate(([row, col, idx, cell]) => {
+      const _x = dx + row,
+        _y = dy + col;
+      if (_x < 0 || _x > 3 || _y < 0 || _y > 3) return;
+      if (isMergable(this.at(idx), this.at([_x, _y]))) indices.push(idx);
+    });
+    return indices;
+  }
   iterate(callback) {
     this.m.forEach((cell, idx) => {
       callback([...toRowCol(idx), idx, cell]);
@@ -27,6 +42,11 @@ export class Matrix extends Model {
   }
 }
 
+function isMergable(a, b) {
+  if (a != b && a + b == 3) return true;
+  if (a == b) return true;
+  return false;
+}
 function getRandomInt(max: number = 1) {
   return Math.floor(Math.random() * max);
 }
