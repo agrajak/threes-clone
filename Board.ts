@@ -19,46 +19,54 @@ export default class Board {
   }
   bindHandlers() {
     this.matrix.on("add", this.render.bind(this));
-    this.$.addEventListener("mousedown", () => {
-      this.isDragging = true;
+    this.$.addEventListener("mousedown", this.dragStart.bind(this));
+    this.$.addEventListener("mouseup", this.dragEnd.bind(this));
+    this.$.addEventListener("mouseleave", this.dragEnd.bind(this));
+    this.$.addEventListener("mousemove", this.dragging.bind(this));
+  }
+  dragStart(event) {
+    this.isDragging = true;
+  }
+  dragEnd(event) {
+    this.isDragging = false;
+    this.direction = null;
+    this.moveableCells.forEach((node) => {
+      node.style.transform = "";
     });
-    this.$.addEventListener("mouseup", () => {
-      this.isDragging = false;
-      this.direction = null;
-      this.moveableCells.forEach((node) => {
-        node.style.transform = "";
-      });
+  }
+  dragging(event) {
+    const { movementX, movementY, clientX, clientY } = event;
+
+    if (!this.isDragging) return;
+    if (!this.direction) {
+      this.direction = getDirectionFromMovement(movementX, movementY);
+      this.moveableCells = this.matrix
+        .getMoveableCellIndices(this.direction)
+        .map((idx) => this.getCellNodeByIdx(idx));
+      this.pos = this.getPosByDirection(clientX, clientY);
+    }
+
+    const delta = this.pos - this.getPosByDirection(clientX, clientY);
+    const translate =
+      this.direction == LEFT || this.direction == RIGHT
+        ? "translateX"
+        : "translateY";
+
+    this.moveableCells.forEach((node) => {
+      node.style.zIndex = "2";
+      node.style.transform = `${translate}(${-delta}px)`;
     });
-    this.$.addEventListener(
-      "mousemove",
-      ({ movementX, movementY, clientX, clientY }) => {
-        if (!this.isDragging) return;
-        if (!this.direction) {
-          this.direction = getDirectionFromMovement(movementX, movementY);
-          this.moveableCells = this.matrix
-            .getMoveableCellIndices(this.direction)
-            .map((idx) => this.getCellNodeByIdx(idx));
-          this.pos = this.getPosByDirection(clientX, clientY);
-        }
-        const delta = this.pos - this.getPosByDirection(clientX, clientY);
-        console.log(this.moveableCells);
-        console.log(this.pos, delta, this.direction);
-        if (this.direction == LEFT || this.direction == RIGHT) {
-          this.moveableCells.forEach((node) => {
-            node.style.transform = `translateX(${delta}px)`;
-          });
-        }
-      }
-    );
   }
   getPosByDirection(clientX, clientY) {
     return this.direction == LEFT || this.direction == RIGHT
       ? clientX
       : clientY;
   }
+
   getCellNodeByIdx(idx: number) {
     return this.$.childNodes.item(idx) as HTMLDivElement;
   }
+
   render() {
     this.matrix.iterate(([_, _, idx, cell]) => {
       if (this.snapshot[idx] !== cell) {
@@ -75,10 +83,10 @@ export default class Board {
 
 function getDirectionFromMovement(movementX, movementY) {
   if (Math.abs(movementX) > Math.abs(movementY)) {
-    if (Math.abs(movementX) > 0) return RIGHT;
+    if (movementX > 0) return RIGHT;
     else return LEFT;
   } else {
-    if (Math.abs(movementY) > 0) return DOWN;
+    if (movementY > 0) return DOWN;
     else return UP;
   }
 }

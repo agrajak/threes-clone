@@ -10,9 +10,9 @@ export interface Cell {
   score: number;
 }
 
-export const LEFT = [-1, 0] as const;
-export const RIGHT = [1, 0] as const;
-export const UP = [0, -1] as const;
-export const DOWN = [0, 1] as const;
+export const LEFT = [0, -1] as const;
+export const RIGHT = [0, 1] as const;
+export const UP = [-1, 0] as const;
+export const DOWN = [1, 0] as const;
 
 export type Direction = typeof LEFT | typeof RIGHT | typeof UP | typeof DOWN;
