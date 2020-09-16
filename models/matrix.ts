@@ -30,8 +30,11 @@ export class Matrix extends Model {
     this.iterate(([row, col, idx, cell]) => {
       const _x = dx + row,
         _y = dy + col;
+      if (this.at(idx).number == 0) return;
       if (_x < 0 || _x > 3 || _y < 0 || _y > 3) return;
-      if (isMergable(this.at(idx), this.at([_x, _y]))) indices.push(idx);
+
+      if (isMergable(this.at(idx).number, this.at([_x, _y]).number))
+        indices.push(idx);
     });
     return indices;
   }
@@ -42,7 +45,8 @@ export class Matrix extends Model {
   }
 }
 
-function isMergable(a, b) {
+function isMergable(a: number, b: number) {
+  if (a == 0 || b == 0) return true;
   if (a != b && a + b == 3) return true;
   if (a == b) return true;
   return false;
