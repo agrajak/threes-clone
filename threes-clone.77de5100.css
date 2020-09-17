@@ -1,0 +1,46 @@
+body {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  user-select: none;
+}
+#board {
+  max-width: 600px;
+  max-height: 600px;
+  display: grid;
+  width: 100%;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(4, 1fr);
+  column-gap: 10px;
+  row-gap: 10px;
+}
+.cell {
+  border-radius: 10px;
+  height: 0;
+  padding-top: 100%;
+  position: relative;
+  color: transparent;
+  background-color: #fafafa;
+}
+.card {
+  border-radius: 10px;
+  background-color: #eaeaea;
+  color: black;
+  font-size: 40px;
+  position: absolute;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+.card[value="1"] {
+  background-color: lightblue;
+}
+
+.card[value="2"] {
+  background-color: lightcoral;
+}
+
+
+/*# sourceMappingURL=/threes-clone.77de5100.css.map */
