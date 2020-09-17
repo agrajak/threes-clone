@@ -8,6 +8,7 @@ export class Matrix extends Model {
     this.emit("init");
   }
   init() {
+    this.m = Array.from({ length: 16 }, () => ({ number: 0, score: 0 }));
     for (let i = 0; i < 3; i++) {
       const point = getRandomPoint();
       const value = getOneOrTwo();
@@ -17,14 +18,13 @@ export class Matrix extends Model {
   }
   add(direction) {
     let col = -1,
-      row = -1,
-      isDead = true;
+      row = -1;
     const available = [];
     const isVertical = direction == LEFT || direction == RIGHT;
     if (isVertical) {
       if (direction == LEFT) col = 3;
       else if (direction == RIGHT) col = 0;
-      for (let row = 0; row < 3; row++) {
+      for (let row = 0; row < 4; row++) {
         if (this.at([row, col]).number == 0) {
           available.push([row, col]);
         }
@@ -32,7 +32,7 @@ export class Matrix extends Model {
     } else {
       if (direction == UP) row = 3;
       else if (direction == DOWN) row = 0;
-      for (let col = 0; col < 3; col++) {
+      for (let col = 0; col < 4; col++) {
         if (this.at([row, col]).number == 0) {
           available.push([row, col]);
         }
@@ -44,6 +44,7 @@ export class Matrix extends Model {
     }
     this.mutate(pickRandomOne(available), { number: pickRandomOne([1, 2, 3]) });
     this.emit("add");
+    return true;
   }
   merge(direction: Direction) {
     const [dx, dy] = direction;

@@ -43,9 +43,13 @@ export default class Board {
     let delta = Math.min(this.maxPos, this.delta);
     if (delta / this.maxPos > 0.6) {
       this.move(delta, this.maxPos, 50).then(() => {
-        console.log("resolved!");
         this.matrix.merge(this.direction);
-        this.matrix.add(this.direction);
+        const done = this.matrix.add(this.direction);
+        if (!done) {
+          alert("님 주금!");
+          this.matrix.init();
+          return;
+        }
         this.isDragging = false;
         this.direction = null;
         this.delta = 0;
@@ -60,14 +64,13 @@ export default class Board {
   }
   move(from = 0, to = this.maxPos, duration = 100) {
     if (this.isMoving) return;
-    console.log(from, to, this.isMoving);
     this.isMoving = true;
     let startAt = null;
     let translateCells = this.translateCells.bind(this);
     function interpolate(timestamp) {
       return ((timestamp - startAt) / duration) * (to - from) + from;
     }
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       const step = (timestamp) => {
         if (!startAt) startAt = timestamp;
         if (timestamp > startAt + duration) {
