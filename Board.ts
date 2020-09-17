@@ -17,24 +17,22 @@ export default class Board {
     this.bindHandlers();
     this.render();
     this.setMaxPos();
-    this.matrix.add();
-    this.matrix.add();
-    this.matrix.add();
-    this.matrix.add();
-    this.matrix.add();
-    this.matrix.add();
-    this.matrix.add();
-    this.matrix.add();
+    this.matrix.init();
   }
   bindHandlers() {
     this.matrix.on("add", this.render.bind(this));
     this.matrix.on("merge", this.render.bind(this));
 
-    window.addEventListener("resize", this.setMaxPos.bind(this));
+    window.addEventListener("resize", this.onResize.bind(this));
     this.$.addEventListener("mousedown", this.dragStart.bind(this));
     this.$.addEventListener("mouseup", this.dragEnd.bind(this));
     this.$.addEventListener("mouseleave", this.dragEnd.bind(this));
     this.$.addEventListener("mousemove", this.dragging.bind(this));
+  }
+  onResize() {
+    this.setMaxPos();
+    this.resizeCards();
+    this.translateCells(0);
   }
   dragStart() {
     this.isDragging = true;
@@ -44,6 +42,7 @@ export default class Board {
     if (this.isDone) {
       this.matrix.merge(this.direction);
       this.isDone = false;
+      this.matrix.add(this.direction);
     }
     this.isDragging = false;
     this.direction = null;
@@ -84,7 +83,6 @@ export default class Board {
   }
 
   translateCells(delta) {
-    const translate = this.isVertical() ? "translateX" : "translateY";
     const indices = this.matrix.getMoveableCellIndices(this.direction);
     this.matrix.iterate(([row, col, idx, cell]) => {
       if (cell.number == 0) return;
@@ -116,27 +114,38 @@ export default class Board {
     });
     this.matrix.iterate(([_, _, idx, cell]) => {
       if (cell.number == 0) return;
-      const node = createCardNode(idx, this.getCardSize());
+      const node = createCardNode(idx);
       changeCardNode(node, cell.number);
       this.$.appendChild(node);
     });
+    this.resizeCards();
     this.translateCells(0);
+  }
+
+  resizeCards() {
+    this.$.querySelectorAll(".card").forEach((node) => {
+      if (!(node instanceof HTMLDivElement)) return;
+      node.style.width = node.style.height = `${this.getCardSize()}px`;
+    });
   }
   getCardSize() {
     const cellNode = this.$.querySelector(".cell") as HTMLDivElement;
     return cellNode.offsetHeight;
   }
+
   setMaxPos() {
     if (this.$.childNodes.length == 0) return 0;
     const gapSize = parseInt(getComputedStyle(this.$).rowGap);
     this.maxPos = gapSize + this.getCardSize();
   }
+
   getCardPositionByIdx(idx: number) {
     const { top, left } = this.$.querySelector(
       `.cell[idx="${idx}"]`
     ).getBoundingClientRect();
     return [top, left];
   }
+
   getCardNodeByIdx(idx: number) {
     return this.$.querySelector(`.card[idx="${idx}"]`) as HTMLDivElement;
   }
@@ -160,14 +169,12 @@ function changeCardNode(node: HTMLDivElement, value: number) {
   }
   node.setAttribute("value", value + "");
 }
-function createCardNode(idx, size) {
+function createCardNode(idx) {
   const node = document.createElement("div");
   node.classList.add("card");
   if (idx !== undefined) {
     node.setAttribute("idx", idx);
   }
-  console.log(size);
-  node.style.width = node.style.height = `${size}px`;
   return node;
 }
 function betweenMinMax(value, min, max) {
