@@ -1,4 +1,4 @@
-import { Cell, Direction, Point } from "../interfaces";
+import { Cell, Direction, DOWN, LEFT, Point, RIGHT, UP } from "../interfaces";
 import Model from "./index";
 export class Matrix extends Model {
   m: Cell[];
@@ -47,15 +47,37 @@ export class Matrix extends Model {
   getMoveableCellIndices(direction: Direction) {
     const [dx, dy] = direction;
     const indices: number[] = [];
-    this.iterate(([row, col, idx, cell]) => {
+    let isVertical = direction == LEFT || direction == RIGHT;
+    let row = 0,
+      col = 0;
+
+    if (direction == LEFT) col = 1;
+    else if (direction == RIGHT) col = 2;
+    else if (direction == UP) row = 1;
+    else if (direction == DOWN) row = 2;
+
+    for (let i = 0; i < 12; i++) {
       const _x = dx + row,
         _y = dy + col;
-      if (this.at(idx).number == 0) return;
-      if (_x < 0 || _x > 3 || _y < 0 || _y > 3) return;
-
-      if (isMergable(this.at(idx).number, this.at([_x, _y]).number))
-        indices.push(idx);
-    });
+      console.log([row, col], _x, _y);
+      if (
+        isMergable(this.at([_x, _y]).number, this.at([row, col]).number) ||
+        indices.indexOf(toIdx([_x, _y])) != -1
+      ) {
+        indices.push(toIdx([row, col]));
+      }
+      if (isVertical) {
+        if (i % 4 == 3) {
+          col -= dy;
+        }
+        row = (row + 1) % 4;
+      } else {
+        if (i % 4 == 3) {
+          row -= dx;
+        }
+        col = (col + 1) % 4;
+      }
+    }
     return indices;
   }
   iterate(callback) {
