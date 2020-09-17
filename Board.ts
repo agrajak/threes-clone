@@ -19,6 +19,12 @@ export default class Board {
     this.setMaxPos();
     this.matrix.add();
     this.matrix.add();
+    this.matrix.add();
+    this.matrix.add();
+    this.matrix.add();
+    this.matrix.add();
+    this.matrix.add();
+    this.matrix.add();
   }
   bindHandlers() {
     this.matrix.on("add", this.render.bind(this));
@@ -36,7 +42,9 @@ export default class Board {
   dragEnd() {
     this.moveableCells.forEach((node) => {
       node.style.transform = "";
+      node.style.zIndex = "";
     });
+    console.log("isDone is ", this.isDone);
     if (this.isDone) {
       this.matrix.merge(this.direction);
       this.isDone = false;
@@ -71,10 +79,11 @@ export default class Board {
       return;
     }
 
-    if (ddelta <= this.maxPos) {
+    if (ddelta <= -this.maxPos) {
       this.isDone = true;
       delta = betweenMinMax(delta, -this.maxPos, this.maxPos);
     }
+    console.log(this.isDone);
 
     this.translateCells(delta);
   }
