@@ -29,7 +29,7 @@ export class Matrix extends Model {
         });
         this.mutate([row, col], {
           number: 0,
-          score: 0,
+          score: 1,
         });
       });
     this.emit("merge");
@@ -59,10 +59,10 @@ export class Matrix extends Model {
     for (let i = 0; i < 12; i++) {
       const _x = dx + row,
         _y = dy + col;
-      console.log([row, col], _x, _y);
       if (
-        isMergable(this.at([_x, _y]).number, this.at([row, col]).number) ||
-        indices.indexOf(toIdx([_x, _y])) != -1
+        (isMergable(this.at([_x, _y]).number, this.at([row, col]).number) ||
+          indices.indexOf(toIdx([_x, _y])) != -1) &&
+        this.at([row, col]).number != 0
       ) {
         indices.push(toIdx([row, col]));
       }

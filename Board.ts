@@ -44,7 +44,6 @@ export default class Board {
       node.style.transform = "";
       node.style.zIndex = "";
     });
-    console.log("isDone is ", this.isDone);
     if (this.isDone) {
       this.matrix.merge(this.direction);
       this.isDone = false;
@@ -83,7 +82,6 @@ export default class Board {
       this.isDone = true;
       delta = betweenMinMax(delta, -this.maxPos, this.maxPos);
     }
-    console.log(this.isDone);
 
     this.translateCells(delta);
   }
@@ -91,7 +89,8 @@ export default class Board {
     const translate = this.isVertical() ? "translateX" : "translateY";
 
     this.moveableCells.forEach((node) => {
-      node.style.zIndex = "2";
+      const idx = parseInt(node.getAttribute("idx"));
+      node.style.zIndex = `${this.matrix.at(idx).score}`;
       node.style.transform = `${translate}(${-delta}px)`;
     });
   }
