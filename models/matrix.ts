@@ -7,10 +7,42 @@ export class Matrix extends Model {
     this.m = Array.from({ length: 16 }, () => ({ number: 0, score: 0 }));
     this.emit("init");
   }
-  add() {
-    const point = getRandomPoint();
-    const value = getOneOrTwo();
-    this.mutate(point, { number: value });
+  init() {
+    for (let i = 0; i < 3; i++) {
+      const point = getRandomPoint();
+      const value = getOneOrTwo();
+      this.mutate(point, { number: value });
+    }
+    this.emit("add");
+  }
+  add(direction) {
+    let col = -1,
+      row = -1,
+      isDead = true;
+    const available = [];
+    const isVertical = direction == LEFT || direction == RIGHT;
+    if (isVertical) {
+      if (direction == LEFT) col = 3;
+      else if (direction == RIGHT) col = 0;
+      for (let row = 0; row < 3; row++) {
+        if (this.at([row, col]).number == 0) {
+          available.push([row, col]);
+        }
+      }
+    } else {
+      if (direction == UP) row = 3;
+      else if (direction == DOWN) row = 0;
+      for (let col = 0; col < 3; col++) {
+        if (this.at([row, col]).number == 0) {
+          available.push([row, col]);
+        }
+      }
+    }
+
+    if (available.length == 0) {
+      return false;
+    }
+    this.mutate(pickRandomOne(available), { number: pickRandomOne([1, 2, 3]) });
     this.emit("add");
   }
   merge(direction: Direction) {
@@ -109,4 +141,7 @@ function toRowCol(idx): Point {
 }
 function toIdx([row, col]: Point) {
   return row * 4 + col;
+}
+function pickRandomOne(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
 }
