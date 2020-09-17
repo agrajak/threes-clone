@@ -1,6 +1,7 @@
 import { Matrix } from "./models/matrix";
 import { Cell, Direction, LEFT, RIGHT, UP, DOWN } from "./interfaces";
 
+const DURATION = 200;
 export default class Board {
   $: HTMLDivElement;
   matrix = new Matrix();
@@ -9,8 +10,9 @@ export default class Board {
   direction: Direction;
   moveableCells: HTMLDivElement[] = [];
   maxPos = 0;
+  delta = 0;
   pos = 0;
-  isDone = false;
+  isMoving = false;
 
   constructor() {
     this.$ = document.getElementById("board") as HTMLDivElement;
@@ -24,10 +26,10 @@ export default class Board {
     this.matrix.on("merge", this.render.bind(this));
 
     window.addEventListener("resize", this.onResize.bind(this));
-    this.$.addEventListener("mousedown", this.dragStart.bind(this));
-    this.$.addEventListener("mouseup", this.dragEnd.bind(this));
-    this.$.addEventListener("mouseleave", this.dragEnd.bind(this));
-    this.$.addEventListener("mousemove", this.dragging.bind(this));
+    window.addEventListener("mousedown", this.dragStart.bind(this));
+    window.addEventListener("mouseup", this.dragEnd.bind(this));
+    window.addEventListener("mouseleave", this.dragEnd.bind(this));
+    window.addEventListener("mousemove", this.dragging.bind(this));
   }
   onResize() {
     this.setMaxPos();
@@ -38,19 +40,51 @@ export default class Board {
     this.isDragging = true;
   }
   dragEnd() {
-    this.translateCells(0);
-    if (this.isDone) {
-      this.matrix.merge(this.direction);
-      this.isDone = false;
-      this.matrix.add(this.direction);
+    let delta = Math.min(this.maxPos, this.delta);
+    if (delta / this.maxPos > 0.6) {
+      this.move(delta, this.maxPos, 50).then(() => {
+        console.log("resolved!");
+        this.matrix.merge(this.direction);
+        this.matrix.add(this.direction);
+        this.isDragging = false;
+        this.direction = null;
+        this.delta = 0;
+      });
+    } else {
+      this.move(delta, 0, 50).then(() => {
+        this.isDragging = false;
+        this.direction = null;
+        this.pos = null;
+      });
     }
-    this.isDragging = false;
-    this.direction = null;
+  }
+  move(from = 0, to = this.maxPos, duration = 100) {
+    if (this.isMoving) return;
+    console.log(from, to, this.isMoving);
+    this.isMoving = true;
+    let startAt = null;
+    let translateCells = this.translateCells.bind(this);
+    function interpolate(timestamp) {
+      return ((timestamp - startAt) / duration) * (to - from) + from;
+    }
+    return new Promise((resolve, reject) => {
+      const step = (timestamp) => {
+        if (!startAt) startAt = timestamp;
+        if (timestamp > startAt + duration) {
+          resolve();
+          this.isMoving = false;
+          translateCells(to);
+          return;
+        }
+        translateCells(interpolate(timestamp));
+        requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
   }
   dragging(event) {
     const { movementX, movementY, clientX, clientY } = event;
     const direction = getDirectionFromMovement(movementX, movementY);
-    this.isDone = false;
 
     if (!this.isDragging) return;
     if (!this.direction) {
@@ -58,31 +92,30 @@ export default class Board {
       this.moveableCells = this.matrix
         .getMoveableCellIndices(direction)
         .map((idx) => this.getCardNodeByIdx(idx));
+
       this.pos = this.isVertical() ? clientX : clientY;
     }
-
-    let delta = this.pos - (this.isVertical() ? clientX : clientY);
+    let pos = this.isVertical() ? clientX : clientY;
 
     /**
-     * ddelta: 방향에 따른 상대 거리. 내가 맨처음에 의도한 방향으로 움직이고 있으면 부호가 -, 반대 방향으로 움직이고 있으면 +
+     * delta: 방향에 따른 상대 거리. 내가 맨처음에 의도한 방향으로 움직이고 있으면 부호가 +, 반대 방향으로 움직이고 있으면 -
      */
-    const ddelta =
-      delta * (this.isVertical() ? this.direction[1] : this.direction[0]);
+    const delta =
+      (pos - this.pos) *
+      (this.isVertical() ? this.direction[1] : this.direction[0]);
 
-    if (ddelta > 0) {
+    if (delta < 0) {
       this.direction = null;
       return;
     }
 
-    if (ddelta <= -this.maxPos) {
-      this.isDone = true;
-      delta = betweenMinMax(delta, -this.maxPos, this.maxPos);
-    }
+    this.delta = delta;
 
-    this.translateCells(delta);
+    this.translateCells(Math.min(delta, this.maxPos));
   }
 
   translateCells(delta) {
+    const [dx, dy] = this.direction ?? [0, 0];
     const indices = this.matrix.getMoveableCellIndices(this.direction);
     this.matrix.iterate(([row, col, idx, cell]) => {
       if (cell.number == 0) return;
@@ -90,11 +123,8 @@ export default class Board {
         x = col * this.maxPos;
 
       if (indices.indexOf(idx) != -1) {
-        if (this.isVertical()) {
-          x -= delta;
-        } else {
-          y -= delta;
-        }
+        y += delta * dx;
+        x += delta * dy;
       }
       const node = this.$.querySelector(
         `.card[idx="${idx}"]`
