@@ -45,8 +45,10 @@ export class Matrix extends Model {
     return this.m[idx];
   }
   getMoveableCellIndices(direction: Direction) {
+    if (!direction) return [];
     const [dx, dy] = direction;
     const indices: number[] = [];
+
     let isVertical = direction == LEFT || direction == RIGHT;
     let row = 0,
       col = 0;

@@ -1,7 +1,7 @@
-.cell.card[value="1"] {
+.card[value="1"] {
   background-color: lightblue;
 }
 
-.cell.card[value="2"] {
+.card[value="2"] {
   background-color: lightcoral;
 }

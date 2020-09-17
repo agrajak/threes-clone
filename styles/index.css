@@ -15,29 +15,21 @@ body {
   row-gap: 10px;
 }
 .cell {
-  display: flex;
-  justify-content: center;
-  align-items: center;
   border-radius: 10px;
-  line-height: 20px;
   height: 0;
   padding-top: 100%;
   position: relative;
   color: transparent;
   background-color: #fafafa;
 }
-.cell.card {
+.card {
+  border-radius: 10px;
   background-color: #eaeaea;
   color: black;
   font-size: 100%;
-}
-.cell .inner {
   position: absolute;
-  height: 100%;
-  width: 100%;
   display: flex;
   justify-content: center;
   align-items: center;
   text-align: center;
-  transform: translateY(-50%);
 }

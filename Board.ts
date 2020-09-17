@@ -40,10 +40,7 @@ export default class Board {
     this.isDragging = true;
   }
   dragEnd() {
-    this.moveableCells.forEach((node) => {
-      node.style.transform = "";
-      node.style.zIndex = "";
-    });
+    this.translateCells(0);
     if (this.isDone) {
       this.matrix.merge(this.direction);
       this.isDone = false;
@@ -61,7 +58,7 @@ export default class Board {
       this.direction = direction;
       this.moveableCells = this.matrix
         .getMoveableCellIndices(direction)
-        .map((idx) => this.getCellNodeByIdx(idx));
+        .map((idx) => this.getCardNodeByIdx(idx));
       this.pos = this.isVertical() ? clientX : clientY;
     }
 
@@ -85,52 +82,63 @@ export default class Board {
 
     this.translateCells(delta);
   }
+
   translateCells(delta) {
     const translate = this.isVertical() ? "translateX" : "translateY";
+    const indices = this.matrix.getMoveableCellIndices(this.direction);
+    this.matrix.iterate(([row, col, idx, cell]) => {
+      if (cell.number == 0) return;
+      let y = row * this.maxPos,
+        x = col * this.maxPos;
 
-    this.moveableCells.forEach((node) => {
-      const idx = parseInt(node.getAttribute("idx"));
+      if (indices.indexOf(idx) != -1) {
+        if (this.isVertical()) {
+          x -= delta;
+        } else {
+          y -= delta;
+        }
+      }
+      const node = this.$.querySelector(
+        `.card[idx="${idx}"]`
+      ) as HTMLDivElement;
       node.style.zIndex = `${this.matrix.at(idx).score}`;
-      node.style.transform = `${translate}(${-delta}px)`;
+      node.style.transform = `translate(${x}px, ${y}px)`;
     });
   }
-  flipDirection() {
-    switch (this.direction) {
-      case LEFT:
-        return RIGHT;
-      case RIGHT:
-        return LEFT;
-      case UP:
-        return DOWN;
-      case DOWN:
-        return UP;
-    }
-  }
 
-  getCellNodeByIdx(idx: number) {
-    return this.$.childNodes.item(idx) as HTMLDivElement;
-  }
   isVertical() {
     return this.direction == LEFT || this.direction == RIGHT;
   }
 
   render() {
-    this.matrix.iterate(([_, _, idx, cell]) => {
-      if (this.snapshot[idx] !== cell) {
-        if (this.snapshot[idx] == undefined) {
-          this.$.appendChild(createCellNode(idx));
-        }
-        const node = this.getCellNodeByIdx(idx);
-        changeCellNode(node, cell.number);
-      }
+    this.$.querySelectorAll(".card").forEach((node) => {
+      this.$.removeChild(node);
     });
-    this.snapshot = this.matrix.m;
+    this.matrix.iterate(([_, _, idx, cell]) => {
+      if (cell.number == 0) return;
+      const node = createCardNode(idx, this.getCardSize());
+      changeCardNode(node, cell.number);
+      this.$.appendChild(node);
+    });
+    this.translateCells(0);
+  }
+  getCardSize() {
+    const cellNode = this.$.querySelector(".cell") as HTMLDivElement;
+    return cellNode.offsetHeight;
   }
   setMaxPos() {
     if (this.$.childNodes.length == 0) return 0;
     const gapSize = parseInt(getComputedStyle(this.$).rowGap);
-    const node = this.$.childNodes.item(0) as HTMLDivElement;
-    this.maxPos = gapSize + node.offsetHeight;
+    this.maxPos = gapSize + this.getCardSize();
+  }
+  getCardPositionByIdx(idx: number) {
+    const { top, left } = this.$.querySelector(
+      `.cell[idx="${idx}"]`
+    ).getBoundingClientRect();
+    return [top, left];
+  }
+  getCardNodeByIdx(idx: number) {
+    return this.$.querySelector(`.card[idx="${idx}"]`) as HTMLDivElement;
   }
 }
 
@@ -143,9 +151,8 @@ function getDirectionFromMovement(movementX, movementY) {
     else return UP;
   }
 }
-function changeCellNode(node: HTMLDivElement, value: number) {
-  const innerNode = node.querySelector(".inner") as HTMLDivElement;
-  innerNode.innerText = "" + value;
+function changeCardNode(node: HTMLDivElement, value: number) {
+  node.innerText = `${value}`;
   if (value == 0) {
     node.classList.remove("card");
   } else {
@@ -153,15 +160,14 @@ function changeCellNode(node: HTMLDivElement, value: number) {
   }
   node.setAttribute("value", value + "");
 }
-function createCellNode(idx) {
+function createCardNode(idx, size) {
   const node = document.createElement("div");
-  node.classList.add("cell");
-  const innerNode = document.createElement("div");
-  innerNode.classList.add("inner");
-  node.appendChild(innerNode);
+  node.classList.add("card");
   if (idx !== undefined) {
     node.setAttribute("idx", idx);
   }
+  console.log(size);
+  node.style.width = node.style.height = `${size}px`;
   return node;
 }
 function betweenMinMax(value, min, max) {
