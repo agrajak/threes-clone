@@ -10,6 +10,7 @@ export default class Board {
   moveableCells: HTMLDivElement[] = [];
   maxPos = 0;
   pos = 0;
+  isDone = false;
 
   constructor() {
     this.$ = document.getElementById("board") as HTMLDivElement;
@@ -21,6 +22,7 @@ export default class Board {
   }
   bindHandlers() {
     this.matrix.on("add", this.render.bind(this));
+    this.matrix.on("merge", this.render.bind(this));
 
     window.addEventListener("resize", this.setMaxPos.bind(this));
     this.$.addEventListener("mousedown", this.dragStart.bind(this));
@@ -32,15 +34,20 @@ export default class Board {
     this.isDragging = true;
   }
   dragEnd() {
-    this.isDragging = false;
-    this.direction = null;
     this.moveableCells.forEach((node) => {
       node.style.transform = "";
     });
+    if (this.isDone) {
+      this.matrix.merge(this.direction);
+      this.isDone = false;
+    }
+    this.isDragging = false;
+    this.direction = null;
   }
   dragging(event) {
     const { movementX, movementY, clientX, clientY } = event;
     const direction = getDirectionFromMovement(movementX, movementY);
+    this.isDone = false;
 
     if (!this.isDragging) return;
     if (!this.direction) {
@@ -52,6 +59,10 @@ export default class Board {
     }
 
     let delta = this.pos - (this.isVertical() ? clientX : clientY);
+
+    /**
+     * ddelta: 방향에 따른 상대 거리. 내가 맨처음에 의도한 방향으로 움직이고 있으면 부호가 -, 반대 방향으로 움직이고 있으면 +
+     */
     const ddelta =
       delta * (this.isVertical() ? this.direction[1] : this.direction[0]);
 
@@ -60,8 +71,10 @@ export default class Board {
       return;
     }
 
-    if (ddelta < this.maxPos)
+    if (ddelta <= this.maxPos) {
+      this.isDone = true;
       delta = betweenMinMax(delta, -this.maxPos, this.maxPos);
+    }
 
     this.translateCells(delta);
   }

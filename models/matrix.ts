@@ -13,7 +13,27 @@ export class Matrix extends Model {
     this.mutate(point, { number: value });
     this.emit("add");
   }
-  move(direction: Direction) {}
+  merge(direction: Direction) {
+    const [dx, dy] = direction;
+    const indices = this.getMoveableCellIndices(direction);
+    indices
+      .map((idx) => toRowCol(idx))
+      .forEach(([row, col]) => {
+        const _x = row + dx,
+          _y = col + dy;
+        const oldCell = this.at([_x, _y]);
+        const newCell = this.at([row, col]);
+        this.mutate([_x, _y], {
+          number: oldCell.number + newCell.number,
+          score: oldCell.score + newCell.score,
+        });
+        this.mutate([row, col], {
+          number: 0,
+          score: 0,
+        });
+      });
+    this.emit("merge");
+  }
   mutate(point: Point, value: Partial<Cell>) {
     const idx = toIdx(point);
     this.m = Object.assign([], this.m, {
