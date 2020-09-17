@@ -12,6 +12,8 @@ export default class Board {
   maxPos = 0;
   delta = 0;
   pos = 0;
+  x = null;
+  y = null;
   isMoving = false;
 
   constructor() {
@@ -30,6 +32,9 @@ export default class Board {
     window.addEventListener("mouseup", this.dragEnd.bind(this));
     window.addEventListener("mouseleave", this.dragEnd.bind(this));
     window.addEventListener("mousemove", this.dragging.bind(this));
+    window.addEventListener("touchstart", this.dragStart.bind(this));
+    window.addEventListener("touchend", this.dragEnd.bind(this));
+    window.addEventListener("touchmove", this.dragging.bind(this));
   }
   onResize() {
     this.setMaxPos();
@@ -85,11 +90,19 @@ export default class Board {
       requestAnimationFrame(step);
     });
   }
+  touchEventHelper(event: MouseEvent | TouchEvent) {
+    if (event instanceof MouseEvent) return event;
+    return event.touches[0];
+  }
   dragging(event) {
-    const { movementX, movementY, clientX, clientY } = event;
-    const direction = getDirectionFromMovement(movementX, movementY);
-
     if (!this.isDragging) return;
+    const { clientX, clientY } = this.touchEventHelper(event);
+    const dx = this.x != null ? this.x - clientX : 0,
+      dy = this.y != null ? this.y - clientY : 0;
+    this.x = clientX;
+    this.y = clientY;
+    const direction = getDirectionFromMovement(dx, dy);
+
     if (!this.direction) {
       this.direction = direction;
       this.moveableCells = this.matrix
