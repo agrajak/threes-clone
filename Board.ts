@@ -41,13 +41,16 @@ export default class Board {
     this.resizeCards();
     this.translateCells(0);
   }
-  dragStart() {
+  dragStart(event) {
+    const { clientX, clientY } = this.touchEventHelper(event);
+    this.x = clientX;
+    this.y = clientY;
     this.isDragging = true;
   }
   dragEnd() {
     let delta = Math.min(this.maxPos, this.delta);
     if (delta / this.maxPos > 0.6) {
-      this.move(delta, this.maxPos, 50).then(() => {
+      this.move(delta, this.maxPos, 70).then(() => {
         this.matrix.merge(this.direction);
         const done = this.matrix.add(this.direction);
         if (!done) {
@@ -60,7 +63,7 @@ export default class Board {
         this.delta = 0;
       });
     } else {
-      this.move(delta, 0, 50).then(() => {
+      this.move(delta, 0, 70).then(() => {
         this.isDragging = false;
         this.direction = null;
         this.pos = null;
@@ -98,8 +101,9 @@ export default class Board {
   dragging(event) {
     if (!this.isDragging) return;
     const { clientX, clientY } = this.touchEventHelper(event);
-    const dx = this.x != null ? this.x - clientX : 0,
-      dy = this.y != null ? this.y - clientY : 0;
+    const dx = clientX - this.x,
+      dy = clientY - this.y;
+    if (dx == 0 && dy == 0) return;
     this.x = clientX;
     this.y = clientY;
     const direction = getDirectionFromMovement(dx, dy);
