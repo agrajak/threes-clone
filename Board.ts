@@ -8,6 +8,7 @@ export default class Board {
   isDragging = false;
   direction: Direction;
   moveableCells: HTMLDivElement[];
+  maxPos = 0;
   pos = 0;
 
   constructor() {
@@ -19,15 +20,17 @@ export default class Board {
   }
   bindHandlers() {
     this.matrix.on("add", this.render.bind(this));
+
+    window.addEventListener("resize", this.setMaxPos.bind(this));
     this.$.addEventListener("mousedown", this.dragStart.bind(this));
     this.$.addEventListener("mouseup", this.dragEnd.bind(this));
     this.$.addEventListener("mouseleave", this.dragEnd.bind(this));
     this.$.addEventListener("mousemove", this.dragging.bind(this));
   }
-  dragStart(event) {
+  dragStart() {
     this.isDragging = true;
   }
-  dragEnd(event) {
+  dragEnd() {
     this.isDragging = false;
     this.direction = null;
     this.moveableCells.forEach((node) => {
@@ -46,7 +49,12 @@ export default class Board {
       this.pos = this.getPosByDirection(clientX, clientY);
     }
 
-    const delta = this.pos - this.getPosByDirection(clientX, clientY);
+    const delta = betweenMinMax(
+      this.pos - this.getPosByDirection(clientX, clientY),
+      -this.maxPos,
+      this.maxPos
+    );
+
     const translate =
       this.direction == LEFT || this.direction == RIGHT
         ? "translateX"
@@ -78,6 +86,13 @@ export default class Board {
       }
     });
     this.snapshot = this.matrix.m;
+    this.setMaxPos();
+  }
+  setMaxPos() {
+    if (this.$.childNodes.length == 0) return 0;
+    const gapSize = parseInt(getComputedStyle(this.$).rowGap);
+    const node = this.$.childNodes.item(0) as HTMLDivElement;
+    this.maxPos = gapSize + node.offsetHeight;
   }
 }
 
@@ -110,4 +125,7 @@ function createCellNode(idx) {
     node.setAttribute("idx", idx);
   }
   return node;
+}
+function betweenMinMax(value, min, max) {
+  return Math.min(max, Math.max(min, value));
 }

@@ -50,7 +50,7 @@ export class Matrix extends Model {
 function isMergable(a: number, b: number) {
   if (a == 0 || b == 0) return true;
   if (a != b && a + b == 3) return true;
-  if (a == b) return true;
+  if (a == b && a + b != 2 && a + b != 4) return true;
   return false;
 }
 function getRandomInt(max: number = 1) {
