@@ -7,7 +7,7 @@ export default class Board {
   snapshot = new Array<Cell>(16);
   isDragging = false;
   direction: Direction;
-  moveableCells: HTMLDivElement[];
+  moveableCells: HTMLDivElement[] = [];
   maxPos = 0;
   pos = 0;
 
@@ -15,6 +15,7 @@ export default class Board {
     this.$ = document.getElementById("board") as HTMLDivElement;
     this.bindHandlers();
     this.render();
+    this.setMaxPos();
     this.matrix.add();
     this.matrix.add();
   }
@@ -39,40 +40,57 @@ export default class Board {
   }
   dragging(event) {
     const { movementX, movementY, clientX, clientY } = event;
+    const direction = getDirectionFromMovement(movementX, movementY);
 
     if (!this.isDragging) return;
     if (!this.direction) {
-      this.direction = getDirectionFromMovement(movementX, movementY);
+      this.direction = direction;
       this.moveableCells = this.matrix
-        .getMoveableCellIndices(this.direction)
+        .getMoveableCellIndices(direction)
         .map((idx) => this.getCellNodeByIdx(idx));
-      this.pos = this.getPosByDirection(clientX, clientY);
+      this.pos = this.isVertical() ? clientX : clientY;
     }
 
-    const delta = betweenMinMax(
-      this.pos - this.getPosByDirection(clientX, clientY),
-      -this.maxPos,
-      this.maxPos
-    );
+    let delta = this.pos - (this.isVertical() ? clientX : clientY);
+    const ddelta =
+      delta * (this.isVertical() ? this.direction[1] : this.direction[0]);
 
-    const translate =
-      this.direction == LEFT || this.direction == RIGHT
-        ? "translateX"
-        : "translateY";
+    if (ddelta > 0) {
+      this.direction = null;
+      return;
+    }
+
+    if (ddelta < this.maxPos)
+      delta = betweenMinMax(delta, -this.maxPos, this.maxPos);
+
+    this.translateCells(delta);
+  }
+  translateCells(delta) {
+    const translate = this.isVertical() ? "translateX" : "translateY";
 
     this.moveableCells.forEach((node) => {
       node.style.zIndex = "2";
       node.style.transform = `${translate}(${-delta}px)`;
     });
   }
-  getPosByDirection(clientX, clientY) {
-    return this.direction == LEFT || this.direction == RIGHT
-      ? clientX
-      : clientY;
+  flipDirection() {
+    switch (this.direction) {
+      case LEFT:
+        return RIGHT;
+      case RIGHT:
+        return LEFT;
+      case UP:
+        return DOWN;
+      case DOWN:
+        return UP;
+    }
   }
 
   getCellNodeByIdx(idx: number) {
     return this.$.childNodes.item(idx) as HTMLDivElement;
+  }
+  isVertical() {
+    return this.direction == LEFT || this.direction == RIGHT;
   }
 
   render() {
@@ -86,7 +104,6 @@ export default class Board {
       }
     });
     this.snapshot = this.matrix.m;
-    this.setMaxPos();
   }
   setMaxPos() {
     if (this.$.childNodes.length == 0) return 0;

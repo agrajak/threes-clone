@@ -33,8 +33,6 @@ export class Matrix extends Model {
       if (this.at(idx).number == 0) return;
       if (_x < 0 || _x > 3 || _y < 0 || _y > 3) return;
 
-      console.log([row, col], "->", [_x, _y], direction);
-
       if (isMergable(this.at(idx).number, this.at([_x, _y]).number))
         indices.push(idx);
     });
