@@ -68,14 +68,15 @@ export default class Board {
     }
   }
   move(from = 0, to = this.maxPos, duration = 100) {
-    if (this.isMoving) return;
+    const isLocked = this.isMoving == true;
     this.isMoving = true;
     let startAt = null;
     let translateCells = this.translateCells.bind(this);
     function interpolate(timestamp) {
       return ((timestamp - startAt) / duration) * (to - from) + from;
     }
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
+      if (isLocked) reject();
       const step = (timestamp) => {
         if (!startAt) startAt = timestamp;
         if (timestamp > startAt + duration) {
