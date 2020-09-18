@@ -92,10 +92,10 @@ export default class Board {
     const merged = this.matrix.merge(this.direction);
     if (merged != 0) {
       this.matrix.add(this.direction, this.next);
+      this.setNext();
     }
     this.direction = null;
     this.setScore();
-    this.setNext();
   }
   setScore() {
     const score = this.matrix.getScore();
