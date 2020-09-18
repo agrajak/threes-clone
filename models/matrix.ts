@@ -17,6 +17,9 @@ export class Matrix extends Model {
     }
     this.emit("add");
   }
+  getScore() {
+    return this.m.map((x) => x.score).reduce((a, b) => a + b, 0);
+  }
   add(direction, value) {
     let col = -1,
       row = -1;
@@ -59,7 +62,7 @@ export class Matrix extends Model {
         const newCell = this.at([row, col]);
         this.mutate([_x, _y], {
           number: oldCell.number + newCell.number,
-          score: oldCell.score + newCell.score,
+          score: oldCell.score + newCell.score + 2,
         });
         this.mutate([row, col], {
           number: 0,

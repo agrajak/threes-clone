@@ -90,6 +90,7 @@ export default class Board {
     if (!this.direction) return;
     this.matrix.merge(this.direction);
     const done = this.matrix.add(this.direction, this.next);
+    this.setScore();
     this.setNext();
     this.isDragging = false;
     this.direction = null;
@@ -97,9 +98,15 @@ export default class Board {
     if (!done) {
       alert("님 주금!");
       this.matrix.init();
-
+      this.setScore();
       return;
     }
+  }
+  setScore() {
+    const score = this.matrix.getScore();
+    (document.body.querySelector(
+      "#score-number"
+    ) as HTMLDivElement).innerText = `${score}`;
   }
   translate(from = 0, to = this.maxPos, duration = 100) {
     const isLocked = this.isMoving == true;
