@@ -386,11 +386,22 @@ function (_super) {
     return true;
   };
 
+  Matrix.prototype.isFinished = function () {
+    var _this = this;
+
+    return [interfaces_1.UP, interfaces_1.DOWN, interfaces_1.LEFT, interfaces_1.RIGHT].map(function (direction) {
+      return _this.getMoveableCellIndices(direction).length;
+    }).reduce(function (a, b) {
+      return a + b;
+    }, 0) == 0;
+  };
+
   Matrix.prototype.merge = function (direction) {
     var _this = this;
 
     var dx = direction[0],
         dy = direction[1];
+    var cnt = 0;
     var indices = this.getMoveableCellIndices(direction);
     indices.map(function (idx) {
       return utils_1.toRowCol(idx);
@@ -414,8 +425,11 @@ function (_super) {
         number: 0,
         score: 1
       });
+
+      cnt += 1;
     });
     this.emit("merge");
+    return cnt;
   };
 
   Matrix.prototype.mutate = function (point, value) {
@@ -538,7 +552,6 @@ function () {
     var _this = this;
 
     var key = event.key;
-    console.log(key);
 
     switch (key) {
       case "ArrowUp":
@@ -582,7 +595,6 @@ function () {
   Board.prototype.dragEnd = function () {
     var _this = this;
 
-    if (this.moveableCells.length == 0) return;
     var delta = Math.min(this.maxPos, this.delta);
 
     if (delta / this.maxPos > 0.6) {
@@ -599,21 +611,18 @@ function () {
   };
 
   Board.prototype.move = function () {
+    this.isDragging = false;
+    this.delta = 0;
     if (!this.direction) return;
-    this.matrix.merge(this.direction);
-    var done = this.matrix.add(this.direction, this.next);
+    var merged = this.matrix.merge(this.direction);
+
+    if (merged != 0) {
+      this.matrix.add(this.direction, this.next);
+    }
+
+    this.direction = null;
     this.setScore();
     this.setNext();
-    this.isDragging = false;
-    this.direction = null;
-    this.delta = 0;
-
-    if (!done) {
-      alert("\uB2D8 \uC8FC\uAE08! \uB2F9\uC2E0\uC758 \uC810\uC218 [" + this.matrix.getScore() + "]");
-      this.matrix.init();
-      this.setScore();
-      return;
-    }
   };
 
   Board.prototype.setScore = function () {
@@ -791,6 +800,13 @@ function () {
     });
     this.resizeCards();
     this.translateCells(0);
+
+    if (this.matrix.getScore() != 0 && this.matrix.isFinished()) {
+      alert("\uB2D8 \uC8FC\uAE08! \uB2F9\uC2E0\uC758 \uC810\uC218 [" + this.matrix.getScore() + "]");
+      this.matrix.init();
+      this.setScore();
+      return;
+    }
   };
 
   Board.prototype.resizeCards = function () {
@@ -987,7 +1003,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "35223" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "36529" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};
