@@ -95,12 +95,6 @@ export default class Board {
     this.direction = null;
     this.setScore();
     this.setNext();
-    if (this.matrix.isFinished()) {
-      alert(`님 주금! 당신의 점수 [${this.matrix.getScore()}]`);
-      this.matrix.init();
-      this.setScore();
-      return;
-    }
   }
   setScore() {
     const score = this.matrix.getScore();
@@ -232,6 +226,12 @@ export default class Board {
     });
     this.resizeCards();
     this.translateCells(0);
+    if (this.matrix.getScore() != 0 && this.matrix.isFinished()) {
+      alert(`님 주금! 당신의 점수 [${this.matrix.getScore()}]`);
+      this.matrix.init();
+      this.setScore();
+      return;
+    }
   }
 
   resizeCards() {
