@@ -4,6 +4,7 @@ import Model from "./index";
 export class Matrix extends Model {
   m: Cell[];
   next: null;
+  nextPos: Point = null;
   constructor() {
     super();
     this.init();
@@ -19,7 +20,7 @@ export class Matrix extends Model {
     this.setScore();
     this.setNext();
   }
-  addNext(direction) {
+  setNextPos(direction) {
     let col = -1,
       row = -1;
     const available = [];
@@ -43,10 +44,17 @@ export class Matrix extends Model {
     }
 
     if (available.length == 0) {
-      return false;
+      this.nextPos = null;
     }
-    this.mutate(pickRandomOne(available), { number: this.next });
+    this.nextPos = pickRandomOne(available);
+  }
+  addNext(direction) {
+    this.nextPos ?? this.setNextPos(direction);
+    if (this.nextPos == null) return false;
+    this.mutate(this.nextPos, { number: this.next });
     this.emit("add");
+    this.setNext();
+    this.nextPos = null;
     return true;
   }
   isFinished() {

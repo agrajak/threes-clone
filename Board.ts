@@ -89,9 +89,8 @@ export default class Board {
     this.isDragging = false;
     this.delta = 0;
     if (!this.direction) return;
-    this.matrix.merge(this.direction);
-    this.matrix.addNext(this.direction);
-    this.matrix.setNext();
+    const merged = this.matrix.merge(this.direction);
+    if (merged > 0) this.matrix.addNext(this.direction);
     this.direction = null;
   }
   setScore(score) {
