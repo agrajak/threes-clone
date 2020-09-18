@@ -17,7 +17,7 @@ export class Matrix extends Model {
     }
     this.emit("add");
   }
-  add(direction) {
+  add(direction, value) {
     let col = -1,
       row = -1;
     const available = [];
@@ -43,7 +43,7 @@ export class Matrix extends Model {
     if (available.length == 0) {
       return false;
     }
-    this.mutate(pickRandomOne(available), { number: pickRandomOne([1, 2, 3]) });
+    this.mutate(pickRandomOne(available), { number: value });
     this.emit("add");
     return true;
   }

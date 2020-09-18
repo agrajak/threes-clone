@@ -55,7 +55,8 @@ export default class Board {
     if (delta / this.maxPos > 0.6) {
       this.move(delta, this.maxPos, 70).then(() => {
         this.matrix.merge(this.direction);
-        const done = this.matrix.add(this.direction);
+        const done = this.matrix.add(this.direction, this.next);
+        this.setNext();
         if (!done) {
           alert("님 주금!");
           this.matrix.init();
@@ -103,6 +104,9 @@ export default class Board {
   }
   setNext() {
     this.next = pickRandomOne([1, 2, 3]);
+    (document.body.querySelector(
+      "#next-number"
+    ) as HTMLDivElement).innerText = this.next;
   }
   dragging(event) {
     if (!this.isDragging) return;
