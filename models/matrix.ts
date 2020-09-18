@@ -50,8 +50,16 @@ export class Matrix extends Model {
     this.emit("add");
     return true;
   }
+  isFinished() {
+    return (
+      [UP, DOWN, LEFT, RIGHT]
+        .map((direction) => this.getMoveableCellIndices(direction).length)
+        .reduce((a, b) => a + b, 0) == 0
+    );
+  }
   merge(direction: Direction) {
     const [dx, dy] = direction;
+    let cnt = 0;
     const indices = this.getMoveableCellIndices(direction);
     indices
       .map((idx) => toRowCol(idx))
@@ -68,8 +76,10 @@ export class Matrix extends Model {
           number: 0,
           score: 1,
         });
+        cnt += 1;
       });
     this.emit("merge");
+    return cnt;
   }
   mutate(point: Point, value: Partial<Cell>) {
     const idx = toIdx(point);

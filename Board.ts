@@ -88,13 +88,14 @@ export default class Board {
     this.isDragging = false;
     this.delta = 0;
     if (!this.direction) return;
-    if (this.matrix.getMoveableCellIndices(this.direction).length == 0) return;
-    this.matrix.merge(this.direction);
-    const done = this.matrix.add(this.direction, this.next);
+    const merged = this.matrix.merge(this.direction);
+    if (merged != 0) {
+      this.matrix.add(this.direction, this.next);
+    }
     this.direction = null;
     this.setScore();
     this.setNext();
-    if (!done) {
+    if (this.matrix.isFinished()) {
       alert(`님 주금! 당신의 점수 [${this.matrix.getScore()}]`);
       this.matrix.init();
       this.setScore();
