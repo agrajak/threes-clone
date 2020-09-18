@@ -41,7 +41,6 @@ export default class Board {
   }
   onKeyDown(event: KeyboardEvent) {
     const { key } = event;
-    console.log(key);
     switch (key) {
       case "ArrowUp":
         this.direction = UP;
@@ -72,7 +71,6 @@ export default class Board {
     this.isDragging = true;
   }
   dragEnd() {
-    if (this.moveableCells.length == 0) return;
     let delta = Math.min(this.maxPos, this.delta);
     if (delta / this.maxPos > 0.6) {
       this.translate(delta, this.maxPos, 70).then(() => {
@@ -87,14 +85,15 @@ export default class Board {
     }
   }
   move() {
+    this.isDragging = false;
+    this.delta = 0;
     if (!this.direction) return;
+    if (this.matrix.getMoveableCellIndices(this.direction).length == 0) return;
     this.matrix.merge(this.direction);
     const done = this.matrix.add(this.direction, this.next);
+    this.direction = null;
     this.setScore();
     this.setNext();
-    this.isDragging = false;
-    this.direction = null;
-    this.delta = 0;
     if (!done) {
       alert(`님 주금! 당신의 점수 [${this.matrix.getScore()}]`);
       this.matrix.init();
