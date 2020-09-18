@@ -128,6 +128,55 @@ exports.LEFT = [0, -1];
 exports.RIGHT = [0, 1];
 exports.UP = [-1, 0];
 exports.DOWN = [1, 0];
+},{}],"utils.ts":[function(require,module,exports) {
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.pickRandomOne = exports.toIdx = exports.toRowCol = exports.getRandomPoint = exports.getOneOrTwo = exports.getRandomInt = void 0;
+
+function getRandomInt(max) {
+  if (max === void 0) {
+    max = 1;
+  }
+
+  return Math.floor(Math.random() * max);
+}
+
+exports.getRandomInt = getRandomInt;
+
+function getOneOrTwo() {
+  return getRandomInt(2) + 1;
+}
+
+exports.getOneOrTwo = getOneOrTwo;
+
+function getRandomPoint() {
+  return [getRandomInt(4), getRandomInt(4)];
+}
+
+exports.getRandomPoint = getRandomPoint;
+
+function toRowCol(idx) {
+  return [Math.floor(idx / 4), idx % 4];
+}
+
+exports.toRowCol = toRowCol;
+
+function toIdx(_a) {
+  var row = _a[0],
+      col = _a[1];
+  return row * 4 + col;
+}
+
+exports.toIdx = toIdx;
+
+function pickRandomOne(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+exports.pickRandomOne = pickRandomOne;
 },{}],"models/index.ts":[function(require,module,exports) {
 "use strict";
 
@@ -247,6 +296,8 @@ exports.Matrix = void 0;
 
 var interfaces_1 = require("../interfaces");
 
+var utils_1 = require("../utils");
+
 var index_1 = __importDefault(require("./index"));
 
 var Matrix =
@@ -282,8 +333,8 @@ function (_super) {
     });
 
     for (var i = 0; i < 3; i++) {
-      var point = getRandomPoint();
-      var value = getOneOrTwo();
+      var point = utils_1.getRandomPoint();
+      var value = utils_1.pickRandomOne([1, 2, 3]);
       this.mutate(point, {
         number: value
       });
@@ -292,7 +343,15 @@ function (_super) {
     this.emit("add");
   };
 
-  Matrix.prototype.add = function (direction) {
+  Matrix.prototype.getScore = function () {
+    return this.m.map(function (x) {
+      return x.score;
+    }).reduce(function (a, b) {
+      return a + b;
+    }, 0);
+  };
+
+  Matrix.prototype.add = function (direction, value) {
     var col = -1,
         row = -1;
     var available = [];
@@ -320,8 +379,8 @@ function (_super) {
       return false;
     }
 
-    this.mutate(pickRandomOne(available), {
-      number: pickRandomOne([1, 2, 3])
+    this.mutate(utils_1.pickRandomOne(available), {
+      number: value
     });
     this.emit("add");
     return true;
@@ -334,7 +393,7 @@ function (_super) {
         dy = direction[1];
     var indices = this.getMoveableCellIndices(direction);
     indices.map(function (idx) {
-      return toRowCol(idx);
+      return utils_1.toRowCol(idx);
     }).forEach(function (_a) {
       var row = _a[0],
           col = _a[1];
@@ -348,7 +407,7 @@ function (_super) {
 
       _this.mutate([_x, _y], {
         number: oldCell.number + newCell.number,
-        score: oldCell.score + newCell.score
+        score: oldCell.score + newCell.score + 2
       });
 
       _this.mutate([row, col], {
@@ -362,12 +421,12 @@ function (_super) {
   Matrix.prototype.mutate = function (point, value) {
     var _a;
 
-    var idx = toIdx(point);
+    var idx = utils_1.toIdx(point);
     this.m = Object.assign([], this.m, (_a = {}, _a[idx] = __assign(__assign({}, this.at(idx)), value), _a));
   };
 
   Matrix.prototype.at = function (param) {
-    var idx = typeof param == "number" ? param : toIdx(param);
+    var idx = typeof param == "number" ? param : utils_1.toIdx(param);
     return this.m[idx];
   };
 
@@ -385,8 +444,8 @@ function (_super) {
       var _x = dx + row,
           _y = dy + col;
 
-      if ((isMergable(this.at([_x, _y]).number, this.at([row, col]).number) || indices.indexOf(toIdx([_x, _y])) != -1) && this.at([row, col]).number != 0) {
-        indices.push(toIdx([row, col]));
+      if ((isMergable(this.at([_x, _y]).number, this.at([row, col]).number) || indices.indexOf(utils_1.toIdx([_x, _y])) != -1) && this.at([row, col]).number != 0) {
+        indices.push(utils_1.toIdx([row, col]));
       }
 
       if (isVertical) {
@@ -409,7 +468,7 @@ function (_super) {
 
   Matrix.prototype.iterate = function (callback) {
     this.m.forEach(function (cell, idx) {
-      callback(__spreadArrays(toRowCol(idx), [idx, cell]));
+      callback(__spreadArrays(utils_1.toRowCol(idx), [idx, cell]));
     });
   };
 
@@ -424,37 +483,7 @@ function isMergable(a, b) {
   if (a == b && a + b != 2 && a + b != 4) return true;
   return false;
 }
-
-function getRandomInt(max) {
-  if (max === void 0) {
-    max = 1;
-  }
-
-  return Math.floor(Math.random() * max);
-}
-
-function getOneOrTwo() {
-  return getRandomInt(2) + 1;
-}
-
-function getRandomPoint() {
-  return [getRandomInt(4), getRandomInt(4)];
-}
-
-function toRowCol(idx) {
-  return [Math.floor(idx / 4), idx % 4];
-}
-
-function toIdx(_a) {
-  var row = _a[0],
-      col = _a[1];
-  return row * 4 + col;
-}
-
-function pickRandomOne(arr) {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-},{"../interfaces":"interfaces.ts","./index":"models/index.ts"}],"Board.ts":[function(require,module,exports) {
+},{"../interfaces":"interfaces.ts","../utils":"utils.ts","./index":"models/index.ts"}],"Board.ts":[function(require,module,exports) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -465,6 +494,8 @@ var matrix_1 = require("./models/matrix");
 
 var interfaces_1 = require("./interfaces");
 
+var utils_1 = require("./utils");
+
 var DURATION = 200;
 
 var Board =
@@ -472,12 +503,12 @@ var Board =
 function () {
   function Board() {
     this.matrix = new matrix_1.Matrix();
-    this.snapshot = new Array(16);
     this.isDragging = false;
     this.moveableCells = [];
     this.maxPos = 0;
     this.delta = 0;
     this.pos = 0;
+    this.next = null;
     this.x = null;
     this.y = null;
     this.isMoving = false;
@@ -486,6 +517,7 @@ function () {
     this.render();
     this.setMaxPos();
     this.matrix.init();
+    this.setNext();
   }
 
   Board.prototype.bindHandlers = function () {
@@ -499,6 +531,36 @@ function () {
     window.addEventListener("touchstart", this.dragStart.bind(this));
     window.addEventListener("touchend", this.dragEnd.bind(this));
     window.addEventListener("touchmove", this.dragging.bind(this));
+    window.addEventListener("keydown", this.onKeyDown.bind(this));
+  };
+
+  Board.prototype.onKeyDown = function (event) {
+    var _this = this;
+
+    var key = event.key;
+    console.log(key);
+
+    switch (key) {
+      case "ArrowUp":
+        this.direction = interfaces_1.UP;
+        break;
+
+      case "ArrowDown":
+        this.direction = interfaces_1.DOWN;
+        break;
+
+      case "ArrowLeft":
+        this.direction = interfaces_1.LEFT;
+        break;
+
+      case "ArrowRight":
+        this.direction = interfaces_1.RIGHT;
+        break;
+    }
+
+    this.translate(0, this.maxPos, 60).then(function () {
+      _this.move();
+    });
   };
 
   Board.prototype.onResize = function () {
@@ -520,28 +582,15 @@ function () {
   Board.prototype.dragEnd = function () {
     var _this = this;
 
+    if (this.moveableCells.length == 0) return;
     var delta = Math.min(this.maxPos, this.delta);
 
     if (delta / this.maxPos > 0.6) {
-      this.move(delta, this.maxPos, 70).then(function () {
-        _this.matrix.merge(_this.direction);
-
-        var done = _this.matrix.add(_this.direction);
-
-        if (!done) {
-          alert("님 주금!");
-
-          _this.matrix.init();
-
-          return;
-        }
-
-        _this.isDragging = false;
-        _this.direction = null;
-        _this.delta = 0;
+      this.translate(delta, this.maxPos, 70).then(function () {
+        _this.move();
       });
     } else {
-      this.move(delta, 0, 70).then(function () {
+      this.translate(delta, 0, 70).then(function () {
         _this.isDragging = false;
         _this.direction = null;
         _this.pos = null;
@@ -549,7 +598,30 @@ function () {
     }
   };
 
-  Board.prototype.move = function (from, to, duration) {
+  Board.prototype.move = function () {
+    if (!this.direction) return;
+    this.matrix.merge(this.direction);
+    var done = this.matrix.add(this.direction, this.next);
+    this.setScore();
+    this.setNext();
+    this.isDragging = false;
+    this.direction = null;
+    this.delta = 0;
+
+    if (!done) {
+      alert("\uB2D8 \uC8FC\uAE08! \uB2F9\uC2E0\uC758 \uC810\uC218 [" + this.matrix.getScore() + "]");
+      this.matrix.init();
+      this.setScore();
+      return;
+    }
+  };
+
+  Board.prototype.setScore = function () {
+    var score = this.matrix.getScore();
+    document.body.querySelector("#score-number").innerText = "" + score;
+  };
+
+  Board.prototype.translate = function (from, to, duration) {
     var _this = this;
 
     if (from === void 0) {
@@ -597,6 +669,32 @@ function () {
   Board.prototype.touchEventHelper = function (event) {
     if (event instanceof MouseEvent) return event;
     return event.touches[0];
+  };
+
+  Board.prototype.getNext = function () {
+    var pick = utils_1.pickRandomOne([1, 2, 3]);
+
+    if (pick == 1 || pick == 2) {
+      var numOfOne = this.matrix.m.map(function (cell) {
+        return cell.number;
+      }).filter(function (x) {
+        return x == 1;
+      }).length;
+      var numOfTwo = this.matrix.m.map(function (cell) {
+        return cell.number;
+      }).filter(function (x) {
+        return x == 2;
+      }).length;
+      if (numOfOne > numOfTwo + 2) return 2;else if (numOfTwo > numOfOne + 2) return 1;
+      return pick;
+    }
+
+    return 3;
+  };
+
+  Board.prototype.setNext = function () {
+    this.next = this.getNext();
+    document.body.querySelector("#next-number").innerText = "" + this.next;
   };
 
   Board.prototype.dragging = function (event) {
@@ -762,11 +860,7 @@ function createCardNode(idx) {
 
   return node;
 }
-
-function betweenMinMax(value, min, max) {
-  return Math.min(max, Math.max(min, value));
-}
-},{"./models/matrix":"models/matrix.ts","./interfaces":"interfaces.ts"}],"../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/bundle-url.js":[function(require,module,exports) {
+},{"./models/matrix":"models/matrix.ts","./interfaces":"interfaces.ts","./utils":"utils.ts"}],"../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/bundle-url.js":[function(require,module,exports) {
 var bundleURL = null;
 
 function getBundleURLCached() {
