@@ -37,6 +37,28 @@ export default class Board {
     window.addEventListener("touchstart", this.dragStart.bind(this));
     window.addEventListener("touchend", this.dragEnd.bind(this));
     window.addEventListener("touchmove", this.dragging.bind(this));
+    window.addEventListener("keydown", this.onKeyDown.bind(this));
+  }
+  onKeyDown(event: KeyboardEvent) {
+    const { key } = event;
+    console.log(key);
+    switch (key) {
+      case "ArrowUp":
+        this.direction = UP;
+        break;
+      case "ArrowDown":
+        this.direction = DOWN;
+        break;
+      case "ArrowLeft":
+        this.direction = LEFT;
+        break;
+      case "ArrowRight":
+        this.direction = RIGHT;
+        break;
+    }
+    this.translate(0, this.maxPos, 60).then(() => {
+      this.move();
+    });
   }
   onResize() {
     this.setMaxPos();
@@ -53,28 +75,33 @@ export default class Board {
     if (this.moveableCells.length == 0) return;
     let delta = Math.min(this.maxPos, this.delta);
     if (delta / this.maxPos > 0.6) {
-      this.move(delta, this.maxPos, 70).then(() => {
-        this.matrix.merge(this.direction);
-        const done = this.matrix.add(this.direction, this.next);
-        this.setNext();
-        if (!done) {
-          alert("님 주금!");
-          this.matrix.init();
-          return;
-        }
-        this.isDragging = false;
-        this.direction = null;
-        this.delta = 0;
+      this.translate(delta, this.maxPos, 70).then(() => {
+        this.move();
       });
     } else {
-      this.move(delta, 0, 70).then(() => {
+      this.translate(delta, 0, 70).then(() => {
         this.isDragging = false;
         this.direction = null;
         this.pos = null;
       });
     }
   }
-  move(from = 0, to = this.maxPos, duration = 100) {
+  move() {
+    if (!this.direction) return;
+    this.matrix.merge(this.direction);
+    const done = this.matrix.add(this.direction, this.next);
+    this.setNext();
+    this.isDragging = false;
+    this.direction = null;
+    this.delta = 0;
+    if (!done) {
+      alert("님 주금!");
+      this.matrix.init();
+
+      return;
+    }
+  }
+  translate(from = 0, to = this.maxPos, duration = 100) {
     const isLocked = this.isMoving == true;
     this.isMoving = true;
     let startAt = null;
