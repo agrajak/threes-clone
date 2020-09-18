@@ -24,7 +24,11 @@ export default class Board {
     this.matrix.init();
   }
   bindHandlers() {
-    this.matrix.on("add", this.render.bind(this));
+    this.matrix.on("add", ({ nextPos, number }) => {
+      this.translateNext(nextPos, number).then(() => {
+        this.render.bind(this)();
+      });
+    });
     this.matrix.on("init", this.render.bind(this));
     this.matrix.on("merge", this.render.bind(this));
     this.matrix.on("set-next", this.setNext.bind(this));
@@ -103,9 +107,7 @@ export default class Board {
     this.isMoving = true;
     let startAt = null;
     let translateCells = this.translateCells.bind(this);
-    function interpolate(timestamp) {
-      return ((timestamp - startAt) / duration) * (to - from) + from;
-    }
+    const linear = interpolateLinear(from, to, duration);
     return new Promise((resolve, reject) => {
       if (isLocked) reject();
       const step = (timestamp) => {
@@ -117,7 +119,44 @@ export default class Board {
           translateCells(to);
           return;
         }
-        translateCells(interpolate(timestamp));
+        translateCells(linear(timestamp - startAt));
+        requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
+  }
+  translateNext(nextPos, number, duration = 100) {
+    const node = createCardNode(99);
+    const [dx, dy] = this.direction;
+    this.$.appendChild(node);
+    changeCardNode(node, number);
+    node.style.zIndex = "10";
+
+    const fromX = nextPos[0] - dx;
+    const fromY = nextPos[1] - dy;
+
+    node.style.transform = `translate(${fromY * this.maxPos}px, ${
+      fromX * this.maxPos
+    }px)`;
+    this.resizeCards();
+    let startAt = null;
+
+    const x = interpolateLinear(nextPos[0] - dx, nextPos[0], duration);
+    const y = interpolateLinear(nextPos[1] - dy, nextPos[1], duration);
+    console.log(x(0), x(duration), y(0), y(duration));
+    return new Promise((resolve, reject) => {
+      const step = (timestamp) => {
+        const dt = timestamp - startAt;
+        console.log("step");
+        if (!startAt) startAt = timestamp;
+        node.style.transform = `translate(${y(dt) * this.maxPos}px, ${
+          x(dt) * this.maxPos
+        }px)`;
+        if (timestamp > startAt + duration) {
+          this.$.removeChild(node);
+          resolve();
+          return;
+        }
         requestAnimationFrame(step);
       };
       requestAnimationFrame(step);
@@ -271,4 +310,10 @@ function createCardNode(idx) {
     node.setAttribute("idx", idx);
   }
   return node;
+}
+
+function interpolateLinear(from, to, duration) {
+  return function (timestamp) {
+    return (timestamp / duration) * (to - from) + from;
+  };
 }

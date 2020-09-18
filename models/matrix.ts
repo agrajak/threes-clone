@@ -52,7 +52,7 @@ export class Matrix extends Model {
     this.nextPos ?? this.setNextPos(direction);
     if (this.nextPos == null) return false;
     this.mutate(this.nextPos, { number: this.next });
-    this.emit("add");
+    this.emit("add", { nextPos: this.nextPos, number: this.next });
     this.setNext();
     this.nextPos = null;
     return true;
