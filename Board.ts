@@ -96,7 +96,7 @@ export default class Board {
     this.direction = null;
     this.delta = 0;
     if (!done) {
-      alert("님 주금!");
+      alert(`님 주금! 당신의 점수 [${this.matrix.getScore()}]`);
       this.matrix.init();
       this.setScore();
       return;
