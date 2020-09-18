@@ -1,8 +1,11 @@
 body {
   display: flex;
   justify-content: center;
+  flex-direction: column;
   align-items: center;
   user-select: none;
+  align-content: center;
+  font-family: "Courier New", Courier, monospace;
 }
 #board {
   max-width: 600px;
@@ -13,6 +16,29 @@ body {
   grid-template-rows: repeat(4, 1fr);
   column-gap: 10px;
   row-gap: 10px;
+}
+#header {
+  display: flex;
+  justify-content: center;
+  align-content: center;
+  align-items: center;
+}
+.box {
+  border-radius: 10px;
+  padding: 10px;
+  margin: 10px;
+  background-color: #eaeaea;
+}
+.box label {
+  display: block;
+}
+.box label#next-number {
+  text-align: center;
+  padding: 5px 0px;
+  font-size: 20px;
+}
+#help {
+  font-size: 25px;
 }
 .cell {
   border-radius: 10px;
