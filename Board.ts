@@ -6,7 +6,6 @@ const DURATION = 200;
 export default class Board {
   $: HTMLDivElement;
   matrix = new Matrix();
-  snapshot = new Array<Cell>(16);
   isDragging = false;
   direction: Direction;
   moveableCells: HTMLDivElement[] = [];
@@ -102,11 +101,28 @@ export default class Board {
     if (event instanceof MouseEvent) return event;
     return event.touches[0];
   }
+  getNext() {
+    let pick = pickRandomOne([1, 2, 3]);
+    if (pick == 1 || pick == 2) {
+      const numOfOne = this.matrix.m
+        .map((cell) => cell.number)
+        .filter((x) => x == 1).length;
+      const numOfTwo = this.matrix.m
+        .map((cell) => cell.number)
+        .filter((x) => x == 2).length;
+
+      if (numOfOne > numOfTwo + 2) return 2;
+      else if (numOfTwo > numOfOne + 2) return 1;
+      return pick;
+    }
+    return 3;
+  }
   setNext() {
-    this.next = pickRandomOne([1, 2, 3]);
+    this.next = this.getNext();
+
     (document.body.querySelector(
       "#next-number"
-    ) as HTMLDivElement).innerText = this.next;
+    ) as HTMLDivElement).innerText = `${this.next}`;
   }
   dragging(event) {
     if (!this.isDragging) return;
@@ -237,7 +253,4 @@ function createCardNode(idx) {
     node.setAttribute("idx", idx);
   }
   return node;
-}
-function betweenMinMax(value, min, max) {
-  return Math.min(max, Math.max(min, value));
 }
