@@ -50,6 +50,7 @@ export default class Board {
     this.isDragging = true;
   }
   dragEnd() {
+    if (this.moveableCells.length == 0) return;
     let delta = Math.min(this.maxPos, this.delta);
     if (delta / this.maxPos > 0.6) {
       this.move(delta, this.maxPos, 70).then(() => {
