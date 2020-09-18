@@ -3,10 +3,10 @@ import { getRandomPoint, pickRandomOne, toIdx, toRowCol } from "../utils";
 import Model from "./index";
 export class Matrix extends Model {
   m: Cell[];
+  next: null;
   constructor() {
     super();
-    this.m = Array.from({ length: 16 }, () => ({ number: 0, score: 0 }));
-    this.emit("init");
+    this.init();
   }
   init() {
     this.m = Array.from({ length: 16 }, () => ({ number: 0, score: 0 }));
@@ -15,12 +15,11 @@ export class Matrix extends Model {
       const value = pickRandomOne([1, 2, 3]);
       this.mutate(point, { number: value });
     }
-    this.emit("add");
+    this.emit("init");
+    this.setScore();
+    this.setNext();
   }
-  getScore() {
-    return this.m.map((x) => x.score).reduce((a, b) => a + b, 0);
-  }
-  add(direction, value) {
+  addNext(direction) {
     let col = -1,
       row = -1;
     const available = [];
@@ -46,7 +45,7 @@ export class Matrix extends Model {
     if (available.length == 0) {
       return false;
     }
-    this.mutate(pickRandomOne(available), { number: value });
+    this.mutate(pickRandomOne(available), { number: this.next });
     this.emit("add");
     return true;
   }
@@ -56,6 +55,26 @@ export class Matrix extends Model {
         .map((direction) => this.getMoveableCellIndices(direction).length)
         .reduce((a, b) => a + b, 0) == 0
     );
+  }
+  setNext() {
+    let pick = pickRandomOne([1, 2, 3]);
+    if (pick == 1 || pick == 2) {
+      const numOfOne = this.m.map((cell) => cell.number).filter((x) => x == 1)
+        .length;
+      const numOfTwo = this.m.map((cell) => cell.number).filter((x) => x == 2)
+        .length;
+
+      if (numOfOne > numOfTwo + 2) pick = 2;
+      else if (numOfTwo > numOfOne + 2) pick = 1;
+    }
+    this.next = pick;
+    this.emit("set-next", this.next);
+  }
+  getScore() {
+    return this.m.map((x) => x.score).reduce((a, b) => a + b, 0) ?? 0;
+  }
+  setScore() {
+    this.emit("set-score", this.getScore());
   }
   merge(direction: Direction) {
     const [dx, dy] = direction;
@@ -79,6 +98,7 @@ export class Matrix extends Model {
         cnt += 1;
       });
     this.emit("merge");
+    if (cnt > 0) this.setScore();
     return cnt;
   }
   mutate(point: Point, value: Partial<Cell>) {

@@ -13,7 +13,6 @@ export default class Board {
   maxPos = 0;
   delta = 0;
   pos = 0;
-  next = null;
   x = null;
   y = null;
   isMoving = false;
@@ -21,14 +20,15 @@ export default class Board {
   constructor() {
     this.$ = document.getElementById("board") as HTMLDivElement;
     this.bindHandlers();
-    this.render();
     this.setMaxPos();
     this.matrix.init();
-    this.setNext();
   }
   bindHandlers() {
     this.matrix.on("add", this.render.bind(this));
+    this.matrix.on("init", this.render.bind(this));
     this.matrix.on("merge", this.render.bind(this));
+    this.matrix.on("set-next", this.setNext.bind(this));
+    this.matrix.on("set-score", this.setScore.bind(this));
 
     window.addEventListener("resize", this.onResize.bind(this));
     window.addEventListener("mousedown", this.dragStart.bind(this));
@@ -89,16 +89,12 @@ export default class Board {
     this.isDragging = false;
     this.delta = 0;
     if (!this.direction) return;
-    const merged = this.matrix.merge(this.direction);
-    if (merged != 0) {
-      this.matrix.add(this.direction, this.next);
-      this.setNext();
-    }
+    this.matrix.merge(this.direction);
+    this.matrix.addNext(this.direction);
+    this.matrix.setNext();
     this.direction = null;
-    this.setScore();
   }
-  setScore() {
-    const score = this.matrix.getScore();
+  setScore(score) {
     (document.body.querySelector(
       "#score-number"
     ) as HTMLDivElement).innerText = `${score}`;
@@ -132,28 +128,10 @@ export default class Board {
     if (event instanceof MouseEvent) return event;
     return event.touches[0];
   }
-  getNext() {
-    let pick = pickRandomOne([1, 2, 3]);
-    if (pick == 1 || pick == 2) {
-      const numOfOne = this.matrix.m
-        .map((cell) => cell.number)
-        .filter((x) => x == 1).length;
-      const numOfTwo = this.matrix.m
-        .map((cell) => cell.number)
-        .filter((x) => x == 2).length;
-
-      if (numOfOne > numOfTwo + 2) return 2;
-      else if (numOfTwo > numOfOne + 2) return 1;
-      return pick;
-    }
-    return 3;
-  }
-  setNext() {
-    this.next = this.getNext();
-
+  setNext(next) {
     (document.body.querySelector(
       "#next-number"
-    ) as HTMLDivElement).innerText = `${this.next}`;
+    ) as HTMLDivElement).innerText = `${next}`;
   }
   highlightNext(flag: boolean) {
     const scoreBox = document.body.querySelector("#score") as HTMLDivElement;
@@ -236,7 +214,6 @@ export default class Board {
     if (this.matrix.getScore() != 0 && this.matrix.isFinished()) {
       alert(`님 주금! 당신의 점수 [${this.matrix.getScore()}]`);
       this.matrix.init();
-      this.setScore();
       return;
     }
   }
