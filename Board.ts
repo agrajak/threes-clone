@@ -3,6 +3,7 @@ import { Cell, Direction, LEFT, RIGHT, UP, DOWN } from "./interfaces";
 import { pickRandomOne } from "./utils";
 
 const DURATION = 200;
+const SEMIAUTO_PUSH_RATIO = 0.6;
 export default class Board {
   $: HTMLDivElement;
   matrix = new Matrix();
@@ -72,7 +73,7 @@ export default class Board {
   }
   dragEnd() {
     let delta = Math.min(this.maxPos, this.delta);
-    if (delta / this.maxPos > 0.6) {
+    if (delta / this.maxPos > SEMIAUTO_PUSH_RATIO) {
       this.translate(delta, this.maxPos, 70).then(() => {
         this.move();
       });
@@ -116,6 +117,7 @@ export default class Board {
         if (!startAt) startAt = timestamp;
         if (timestamp > startAt + duration) {
           resolve();
+          this.highlightNext(false);
           this.isMoving = false;
           translateCells(to);
           return;
@@ -153,6 +155,11 @@ export default class Board {
       "#next-number"
     ) as HTMLDivElement).innerText = `${this.next}`;
   }
+  highlightNext(flag: boolean) {
+    const scoreBox = document.body.querySelector("#score") as HTMLDivElement;
+    if (flag) scoreBox.classList.add("highlight");
+    else scoreBox.classList.remove("highlight");
+  }
   dragging(event) {
     if (!this.isDragging) return;
     const { clientX, clientY } = this.touchEventHelper(event);
@@ -179,12 +186,12 @@ export default class Board {
     const delta =
       (pos - this.pos) *
       (this.isVertical() ? this.direction[1] : this.direction[0]);
-
     if (delta < 0) {
       this.direction = null;
       return;
     }
 
+    this.highlightNext(delta / this.maxPos > SEMIAUTO_PUSH_RATIO);
     this.delta = delta;
 
     this.translateCells(Math.min(delta, this.maxPos));

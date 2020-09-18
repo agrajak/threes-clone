@@ -28,6 +28,11 @@ body {
   padding: 10px;
   margin: 10px;
   background-color: #eaeaea;
+  transition: border 100ms linear;
+  border: 1px solid #eaeaea;
+}
+.box.highlight {
+  border: 1px solid grey;
 }
 .box label {
   display: block;
