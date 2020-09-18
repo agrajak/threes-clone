@@ -1,4 +1,5 @@
 import { Cell, Direction, DOWN, LEFT, Point, RIGHT, UP } from "../interfaces";
+import { getRandomPoint, pickRandomOne, toIdx, toRowCol } from "../utils";
 import Model from "./index";
 export class Matrix extends Model {
   m: Cell[];
@@ -11,7 +12,7 @@ export class Matrix extends Model {
     this.m = Array.from({ length: 16 }, () => ({ number: 0, score: 0 }));
     for (let i = 0; i < 3; i++) {
       const point = getRandomPoint();
-      const value = getOneOrTwo();
+      const value = pickRandomOne([1, 2, 3]);
       this.mutate(point, { number: value });
     }
     this.emit("add");
@@ -127,22 +128,4 @@ function isMergable(a: number, b: number) {
   if (a != b && a + b == 3) return true;
   if (a == b && a + b != 2 && a + b != 4) return true;
   return false;
-}
-function getRandomInt(max: number = 1) {
-  return Math.floor(Math.random() * max);
-}
-function getOneOrTwo() {
-  return getRandomInt(2) + 1;
-}
-function getRandomPoint(): Point {
-  return [getRandomInt(4), getRandomInt(4)];
-}
-function toRowCol(idx): Point {
-  return [Math.floor(idx / 4), idx % 4];
-}
-function toIdx([row, col]: Point) {
-  return row * 4 + col;
-}
-function pickRandomOne(arr) {
-  return arr[Math.floor(Math.random() * arr.length)];
 }

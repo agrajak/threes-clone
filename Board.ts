@@ -1,5 +1,6 @@
 import { Matrix } from "./models/matrix";
 import { Cell, Direction, LEFT, RIGHT, UP, DOWN } from "./interfaces";
+import { pickRandomOne } from "./utils";
 
 const DURATION = 200;
 export default class Board {
@@ -12,6 +13,7 @@ export default class Board {
   maxPos = 0;
   delta = 0;
   pos = 0;
+  next = null;
   x = null;
   y = null;
   isMoving = false;
@@ -22,6 +24,7 @@ export default class Board {
     this.render();
     this.setMaxPos();
     this.matrix.init();
+    this.setNext();
   }
   bindHandlers() {
     this.matrix.on("add", this.render.bind(this));
@@ -97,6 +100,9 @@ export default class Board {
   touchEventHelper(event: MouseEvent | TouchEvent) {
     if (event instanceof MouseEvent) return event;
     return event.touches[0];
+  }
+  setNext() {
+    this.next = pickRandomOne([1, 2, 3]);
   }
   dragging(event) {
     if (!this.isDragging) return;
