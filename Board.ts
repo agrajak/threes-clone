@@ -1,8 +1,16 @@
 import { Matrix } from "./models/matrix";
 import { Cell, Direction, LEFT, RIGHT, UP, DOWN } from "./interfaces";
-import { pickRandomOne, toIdx, toRowCol } from "./utils";
+import {
+  changeCardNode,
+  createCardNode,
+  getDirectionFromMovement,
+  pickRandomOne,
+  toIdx,
+  toRowCol,
+  touchEventHelper,
+} from "./utils";
 import { Header } from "./Header";
-import { linear } from "./animation";
+import { BoardAnimation, linear } from "./animation";
 
 const DURATION = 200;
 const SEMIAUTO_PUSH_RATIO = 0.6;
@@ -17,16 +25,18 @@ export default class Board {
   x = null;
   y = null;
   isMoving = false;
+  animation: BoardAnimation;
 
   constructor() {
     this.$ = document.getElementById("board") as HTMLDivElement;
     this.header = new Header();
+    this.animation = new BoardAnimation(this);
     this.bindHandlers();
     this.matrix.init();
   }
   bindHandlers() {
     this.matrix.on("add", ({ nextPos, number }) => {
-      this.animateNext(nextPos, number).then(() => {
+      this.animation.animateNext(nextPos, number).then(() => {
         this.render.bind(this)();
         if (this.matrix.getScore() != 0 && this.matrix.isFinished()) {
           setTimeout(() => {
@@ -39,7 +49,7 @@ export default class Board {
     });
     this.matrix.on("init", this.render.bind(this));
     this.matrix.on("merge", (merged) => {
-      this.flipMergedCards(merged);
+      this.animation.flipMergedCards(merged);
     });
     this.matrix.on("set-next", this.header.setNext.bind(this.header));
     this.matrix.on("set-score", this.header.setScore.bind(this.header));
@@ -53,51 +63,6 @@ export default class Board {
     window.addEventListener("touchend", this.dragEnd.bind(this));
     window.addEventListener("touchmove", this.dragging.bind(this));
     window.addEventListener("keydown", this.onKeyDown.bind(this));
-  }
-  flipMergedCards(merged, duration = 200) {
-    let startAt = null;
-    const maxPos = this.calculateMaxPos();
-    const [dx, dy] = this.direction;
-    const rotate = linear(0, 180, duration);
-    const rotateDirection = this.isVertical() ? "rotateY" : "rotateX";
-    const reverseRotate = linear(180, 0, duration);
-
-    merged.forEach(({ row, col }) => {
-      const deMergedIdx = toIdx([row - dx, col - dy]);
-      const node = this.getCardNodeByIdx(deMergedIdx);
-      if (node) {
-        node.style.display = "none";
-      }
-    });
-
-    let halfWayDone = false;
-
-    return new Promise((resolve) => {
-      if (merged.length == 0) resolve();
-      const step = (timestamp) => {
-        if (!startAt) startAt = timestamp;
-        const dt = timestamp - startAt;
-        if (dt >= duration / 2) halfWayDone = true;
-        merged.forEach(({ idx, row, col, before, after }) => {
-          const node = this.getCardNodeByIdx(idx);
-          const x = row * maxPos,
-            y = col * maxPos;
-
-          changeCardNode(node, halfWayDone ? after : before);
-
-          node.style.zIndex = `20`;
-          node.style.transform = `translate(${y}px, ${x}px) ${rotateDirection}(${Math.floor(
-            halfWayDone ? reverseRotate(dt) : rotate(dt)
-          )}deg)`;
-        });
-        if (timestamp > startAt + duration) {
-          resolve();
-          return;
-        }
-        requestAnimationFrame(step);
-      };
-      requestAnimationFrame(step);
-    });
   }
   onKeyDown(event: KeyboardEvent) {
     const maxPos = this.calculateMaxPos();
@@ -118,7 +83,7 @@ export default class Board {
         break;
     }
     if (!this.direction) return;
-    this.animateCards(0, maxPos, 60).then(() => {
+    this.animation.animateCards(0, maxPos, 60).then(() => {
       this.matrix.move(this.direction);
     });
   }
@@ -136,7 +101,7 @@ export default class Board {
     const maxPos = this.calculateMaxPos();
     let delta = Math.min(maxPos, this.delta);
     if (delta / maxPos > SEMIAUTO_PUSH_RATIO) {
-      this.animateCards(delta, maxPos, 70).then(() => {
+      this.animation.animateCards(delta, maxPos, 70).then(() => {
         this.matrix.move(this.direction);
         this.header.highlightNext(false);
         this.delta = 0;
@@ -144,7 +109,7 @@ export default class Board {
         this.direction = null;
       });
     } else {
-      this.animateCards(delta, 0, 70).then(() => {
+      this.animation.animateCards(delta, 0, 70).then(() => {
         this.isDragging = false;
         this.direction = null;
         this.pos = null;
@@ -152,60 +117,6 @@ export default class Board {
     }
   }
 
-  animateCards(from = 0, to = 1, duration = 100) {
-    const isLocked = this.isMoving == true;
-    let startAt = null;
-    let translateCards = this.translateCards.bind(this);
-    const d = linear(from, to, duration);
-    return new Promise((resolve, reject) => {
-      const step = (timestamp) => {
-        if (!startAt) startAt = timestamp;
-        const dt = timestamp - startAt;
-        if (timestamp > startAt + duration) {
-          resolve();
-          translateCards(to);
-          return;
-        }
-        translateCards(d(dt));
-        requestAnimationFrame(step);
-      };
-      requestAnimationFrame(step);
-    });
-  }
-  animateNext(nextPos, number, duration = 100) {
-    const node = createCardNode(99);
-    const [dx, dy] = this.direction;
-    this.$.appendChild(node);
-    changeCardNode(node, number);
-    node.style.zIndex = "10";
-
-    const x = linear(nextPos[0] - dx, nextPos[0], duration);
-    const y = linear(nextPos[1] - dy, nextPos[1], duration);
-    const maxPos = this.calculateMaxPos();
-    const opacity = linear(0, 1, duration);
-
-    node.style.transform = `translate(${y(0) * maxPos}px, ${x(0) * maxPos}px)`;
-    this.resizeCards();
-    let startAt = null;
-
-    return new Promise((resolve, reject) => {
-      const step = (timestamp) => {
-        if (!startAt) startAt = timestamp;
-        const dt = timestamp - startAt;
-        node.style.transform = `translate(${y(dt) * maxPos}px, ${
-          x(dt) * maxPos
-        }px)`;
-        node.style.opacity = `${opacity(dt)}`;
-        if (timestamp > startAt + duration) {
-          this.$.removeChild(node);
-          resolve();
-          return;
-        }
-        requestAnimationFrame(step);
-      };
-      requestAnimationFrame(step);
-    });
-  }
   dragging(event) {
     if (!this.isDragging) return;
     const { clientX, clientY } = touchEventHelper(event);
@@ -307,36 +218,4 @@ export default class Board {
   getCardNodeByIdx(idx: number) {
     return this.$.querySelector(`.card[idx="${idx}"]`) as HTMLDivElement;
   }
-}
-
-function getDirectionFromMovement(movementX, movementY) {
-  if (Math.abs(movementX) > Math.abs(movementY)) {
-    if (movementX > 0) return RIGHT;
-    else return LEFT;
-  } else {
-    if (movementY > 0) return DOWN;
-    else return UP;
-  }
-}
-function changeCardNode(node: HTMLDivElement, value: number) {
-  node.innerText = `${value}`;
-  if (value == 0) {
-    node.classList.remove("card");
-  } else {
-    node.classList.add("card");
-  }
-  node.setAttribute("value", value + "");
-}
-function createCardNode(idx) {
-  const node = document.createElement("div");
-  node.classList.add("card");
-  if (idx !== undefined) {
-    node.setAttribute("idx", idx);
-  }
-  return node;
-}
-
-function touchEventHelper(event: MouseEvent | TouchEvent) {
-  if (event instanceof MouseEvent) return event;
-  return event.touches[0];
 }
