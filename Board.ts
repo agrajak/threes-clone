@@ -11,8 +11,6 @@ export default class Board {
   header: Header;
   isDragging = false;
   direction: Direction;
-  moveableCells: HTMLDivElement[] = [];
-  maxPos = 0;
   delta = 0;
   pos = 0;
   x = null;
@@ -23,7 +21,6 @@ export default class Board {
     this.$ = document.getElementById("board") as HTMLDivElement;
     this.header = new Header();
     this.bindHandlers();
-    this.setMaxPos();
     this.matrix.init();
   }
   bindHandlers() {
@@ -53,6 +50,7 @@ export default class Board {
   }
   flipMergedCards(merged, duration = 200) {
     let startAt = null;
+    const maxPos = this.calculateMaxPos();
     const [dx, dy] = this.direction;
     const rotate = interpolateLinear(0, 180, duration);
     const rotateDirection = this.isVertical() ? "rotateY" : "rotateX";
@@ -78,8 +76,8 @@ export default class Board {
           const node = this.$.querySelector(
             `.card[idx="${idx}"]`
           ) as HTMLDivElement;
-          const x = row * this.maxPos,
-            y = col * this.maxPos;
+          const x = row * maxPos,
+            y = col * maxPos;
 
           changeCardNode(node, halfWayDone ? after : before);
 
@@ -98,6 +96,7 @@ export default class Board {
     });
   }
   onKeyDown(event: KeyboardEvent) {
+    const maxPos = this.calculateMaxPos();
     const { key } = event;
     switch (key) {
       case "ArrowUp":
@@ -113,12 +112,11 @@ export default class Board {
         this.direction = RIGHT;
         break;
     }
-    this.animateCards(0, this.maxPos, 60).then(() => {
+    this.animateCards(0, maxPos, 60).then(() => {
       this.matrix.move(this.direction);
     });
   }
   onResize() {
-    this.setMaxPos();
     this.resizeCards();
     this.translateCards(0);
   }
@@ -129,9 +127,10 @@ export default class Board {
     this.isDragging = true;
   }
   dragEnd() {
-    let delta = Math.min(this.maxPos, this.delta);
-    if (delta / this.maxPos > SEMIAUTO_PUSH_RATIO) {
-      this.animateCards(delta, this.maxPos, 70).then(() => {
+    const maxPos = this.calculateMaxPos();
+    let delta = Math.min(maxPos, this.delta);
+    if (delta / maxPos > SEMIAUTO_PUSH_RATIO) {
+      this.animateCards(delta, maxPos, 70).then(() => {
         this.matrix.move(this.direction);
         this.delta = 0;
         this.isDragging = false;
@@ -146,7 +145,7 @@ export default class Board {
     }
   }
 
-  animateCards(from = 0, to = this.maxPos, duration = 100) {
+  animateCards(from = 0, to = 1, duration = 100) {
     const isLocked = this.isMoving == true;
     this.isMoving = true;
     let startAt = null;
@@ -178,11 +177,10 @@ export default class Board {
 
     const x = interpolateLinear(nextPos[0] - dx, nextPos[0], duration);
     const y = interpolateLinear(nextPos[1] - dy, nextPos[1], duration);
+    const maxPos = this.calculateMaxPos();
     const opacity = interpolateLinear(0, 1, duration);
 
-    node.style.transform = `translate(${y(0) * this.maxPos}px, ${
-      x(0) * this.maxPos
-    }px)`;
+    node.style.transform = `translate(${y(0) * maxPos}px, ${x(0) * maxPos}px)`;
     this.resizeCards();
     let startAt = null;
 
@@ -190,8 +188,8 @@ export default class Board {
       const step = (timestamp) => {
         if (!startAt) startAt = timestamp;
         const dt = timestamp - startAt;
-        node.style.transform = `translate(${y(dt) * this.maxPos}px, ${
-          x(dt) * this.maxPos
+        node.style.transform = `translate(${y(dt) * maxPos}px, ${
+          x(dt) * maxPos
         }px)`;
         node.style.opacity = `${opacity(dt)}`;
         if (timestamp > startAt + duration) {
@@ -207,6 +205,7 @@ export default class Board {
   dragging(event) {
     if (!this.isDragging) return;
     const { clientX, clientY } = touchEventHelper(event);
+    const maxPos = this.calculateMaxPos();
     const dx = clientX - this.x,
       dy = clientY - this.y;
     if (dx == 0 && dy == 0) return;
@@ -216,9 +215,6 @@ export default class Board {
 
     if (!this.direction) {
       this.direction = direction;
-      this.moveableCells = this.matrix
-        .getMoveableCellIndices(direction)
-        .map((idx) => this.getCardNodeByIdx(idx));
 
       this.pos = this.isVertical() ? clientX : clientY;
     }
@@ -230,32 +226,33 @@ export default class Board {
     const delta =
       (pos - this.pos) *
       (this.isVertical() ? this.direction[1] : this.direction[0]);
+
     if (delta < 0) {
       this.direction = null;
       return;
     }
 
-    this.header.highlightNext(delta / this.maxPos > SEMIAUTO_PUSH_RATIO);
+    this.header.highlightNext(delta / maxPos > SEMIAUTO_PUSH_RATIO);
     this.delta = delta;
 
-    this.translateCards(Math.min(delta, this.maxPos));
+    this.translateCards(Math.min(delta, maxPos));
   }
 
   translateCards(delta) {
     const [dx, dy] = this.direction ?? [0, 0];
     const indices = this.matrix.getMoveableCellIndices(this.direction);
+    const maxPos = this.calculateMaxPos();
     this.matrix.iterate(([row, col, idx, cell]) => {
       if (cell.number == 0) return;
-      let y = row * this.maxPos,
-        x = col * this.maxPos;
+      let y = row * maxPos,
+        x = col * maxPos;
 
       if (indices.indexOf(idx) != -1) {
         y += delta * dx;
         x += delta * dy;
       }
-      const node = this.$.querySelector(
-        `.card[idx="${idx}"]`
-      ) as HTMLDivElement;
+      const node = this.getCardNodeByIdx(idx);
+
       node.style.zIndex = `${this.matrix.at(idx).score}`;
       node.style.transform = `translate(${x}px, ${y}px)`;
     });
@@ -269,7 +266,7 @@ export default class Board {
     this.$.querySelectorAll(".card").forEach((node) => {
       this.$.removeChild(node);
     });
-    this.matrix.iterate(([_, _, idx, cell]) => {
+    this.matrix.iterate(([row, col, idx, cell]) => {
       if (cell.number == 0) return;
       const node = createCardNode(idx);
       changeCardNode(node, cell.number);
@@ -287,18 +284,18 @@ export default class Board {
   resizeCards() {
     this.$.querySelectorAll(".card").forEach((node) => {
       if (!(node instanceof HTMLDivElement)) return;
-      node.style.width = node.style.height = `${this.getCardSize()}px`;
+      node.style.width = node.style.height = `${this.calculateCardSize()}px`;
     });
   }
-  getCardSize() {
+  calculateCardSize() {
     const cellNode = this.$.querySelector(".cell") as HTMLDivElement;
     return cellNode.offsetHeight;
   }
 
-  setMaxPos() {
+  calculateMaxPos() {
     if (this.$.childNodes.length == 0) return 0;
     const gapSize = parseInt(getComputedStyle(this.$).rowGap);
-    this.maxPos = gapSize + this.getCardSize();
+    return gapSize + this.calculateCardSize();
   }
 
   getCardPositionByIdx(idx: number) {
