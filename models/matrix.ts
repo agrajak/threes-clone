@@ -9,6 +9,13 @@ export class Matrix extends Model {
     super();
     this.init();
   }
+  set(arr) {
+    this.m = Array.from({ length: 16 }, () => ({ number: 0, score: 0 }));
+    this.m.forEach((item, idx) => {
+      const [row, col] = toRowCol(idx);
+      item.number = arr[row][col];
+    });
+  }
   init() {
     this.m = Array.from({ length: 16 }, () => ({ number: 0, score: 0 }));
     for (let i = 0; i < 3; i++) {
@@ -88,6 +95,7 @@ export class Matrix extends Model {
     if (!direction) return;
     const merged = this.merge(direction);
     if (merged > 0) this.addNext(direction);
+    this.emit("move");
   }
   merge(direction: Direction) {
     const [dx, dy] = direction;

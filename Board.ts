@@ -27,13 +27,18 @@ export default class Board {
     this.matrix.on("add", ({ nextPos, number }) => {
       this.animateNext(nextPos, number).then(() => {
         this.render.bind(this)();
+        if (this.matrix.getScore() != 0 && this.matrix.isFinished()) {
+          setTimeout(() => {
+            alert(`님 주금! 당신의 점수 [${this.matrix.getScore()}]`);
+            this.matrix.init();
+          }, 500);
+          return;
+        }
       });
     });
     this.matrix.on("init", this.render.bind(this));
     this.matrix.on("merge", (merged) => {
-      this.flipMergedCards(merged).then(() => {
-        this.render.bind(this);
-      });
+      this.flipMergedCards(merged);
     });
     this.matrix.on("set-next", this.header.setNext.bind(this.header));
     this.matrix.on("set-score", this.header.setScore.bind(this.header));
@@ -73,9 +78,7 @@ export default class Board {
         const dt = timestamp - startAt;
         if (dt >= duration / 2) halfWayDone = true;
         merged.forEach(({ idx, row, col, before, after }) => {
-          const node = this.$.querySelector(
-            `.card[idx="${idx}"]`
-          ) as HTMLDivElement;
+          const node = this.getCardNodeByIdx(idx);
           const x = row * maxPos,
             y = col * maxPos;
 
@@ -132,6 +135,7 @@ export default class Board {
     if (delta / maxPos > SEMIAUTO_PUSH_RATIO) {
       this.animateCards(delta, maxPos, 70).then(() => {
         this.matrix.move(this.direction);
+        this.header.highlightNext(false);
         this.delta = 0;
         this.isDragging = false;
         this.direction = null;
@@ -147,22 +151,19 @@ export default class Board {
 
   animateCards(from = 0, to = 1, duration = 100) {
     const isLocked = this.isMoving == true;
-    this.isMoving = true;
     let startAt = null;
     let translateCards = this.translateCards.bind(this);
-    const linear = interpolateLinear(from, to, duration);
+    const d = interpolateLinear(from, to, duration);
     return new Promise((resolve, reject) => {
-      if (isLocked) reject();
       const step = (timestamp) => {
         if (!startAt) startAt = timestamp;
+        const dt = timestamp - startAt;
         if (timestamp > startAt + duration) {
           resolve();
-          this.header.highlightNext(false);
-          this.isMoving = false;
           translateCards(to);
           return;
         }
-        translateCards(linear(timestamp - startAt));
+        translateCards(d(dt));
         requestAnimationFrame(step);
       };
       requestAnimationFrame(step);
@@ -274,11 +275,6 @@ export default class Board {
     });
     this.resizeCards();
     this.translateCards(0);
-    if (this.matrix.getScore() != 0 && this.matrix.isFinished()) {
-      alert(`님 주금! 당신의 점수 [${this.matrix.getScore()}]`);
-      this.matrix.init();
-      return;
-    }
   }
 
   resizeCards() {
