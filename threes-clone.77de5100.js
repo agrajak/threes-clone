@@ -315,6 +315,24 @@ function (_super) {
     return _this;
   }
 
+  Matrix.prototype.set = function (arr) {
+    this.m = Array.from({
+      length: 16
+    }, function () {
+      return {
+        number: 0,
+        score: 0
+      };
+    });
+    this.m.forEach(function (item, idx) {
+      var _a = utils_1.toRowCol(idx),
+          row = _a[0],
+          col = _a[1];
+
+      item.number = arr[row][col];
+    });
+  };
+
   Matrix.prototype.init = function () {
     this.m = Array.from({
       length: 16
@@ -431,6 +449,13 @@ function (_super) {
     this.emit("set-score", this.getScore());
   };
 
+  Matrix.prototype.move = function (direction) {
+    if (!direction) return;
+    var merged = this.merge(direction);
+    if (merged > 0) this.addNext(direction);
+    this.emit("move");
+  };
+
   Matrix.prototype.merge = function (direction) {
     var _this = this;
 
@@ -454,13 +479,15 @@ function (_super) {
 
       if (oldCell.number != 0) merged.push({
         idx: utils_1.toIdx([_x, _y]),
+        row: _x,
+        col: _y,
         before: oldCell.number,
         after: newCell.number + oldCell.number
       });
 
       _this.mutate([_x, _y], {
         number: oldCell.number + newCell.number,
-        score: oldCell.score + newCell.score + 2
+        score: oldCell.score + newCell.score + oldCell.number
       });
 
       _this.mutate([row, col], {
@@ -540,7 +567,109 @@ function isMergable(a, b) {
   if (a == b && a + b != 2 && a + b != 4) return true;
   return false;
 }
-},{"../interfaces":"interfaces.ts","../utils":"utils.ts","./index":"models/index.ts"}],"Board.ts":[function(require,module,exports) {
+},{"../interfaces":"interfaces.ts","../utils":"utils.ts","./index":"models/index.ts"}],"animation.ts":[function(require,module,exports) {
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.linear = exports.BoardAnimation = exports.animationBuilder = void 0;
+
+function animationBuilder(onResolve, onRun, duration) {
+  if (duration === void 0) {
+    duration = 100;
+  }
+
+  var startAt = null;
+  return new Promise(function (resolve) {
+    var step = function step(timestamp) {
+      if (!startAt) startAt = timestamp;
+
+      if (timestamp > startAt + duration) {
+        onResolve && onResolve();
+        resolve();
+        return;
+      }
+
+      onRun && onRun(timestamp - startAt);
+      requestAnimationFrame(step);
+    };
+
+    requestAnimationFrame(step);
+  });
+}
+
+exports.animationBuilder = animationBuilder;
+
+var BoardAnimation =
+/** @class */
+function () {
+  function BoardAnimation(board) {
+    this.board = board;
+  }
+
+  return BoardAnimation;
+}();
+
+exports.BoardAnimation = BoardAnimation;
+
+function linear(from, to, duration) {
+  return function (timestamp) {
+    return timestamp / duration * (to - from) + from;
+  };
+}
+
+exports.linear = linear;
+},{}],"Header.ts":[function(require,module,exports) {
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.Header = void 0;
+
+var animation_1 = require("./animation");
+
+var Header =
+/** @class */
+function () {
+  function Header() {
+    this.score = 0;
+    this.$ = document.getElementById("header");
+  }
+
+  Header.prototype.setNext = function (next) {
+    this.$.querySelector("#next-number").innerText = "" + next;
+    this.next = next;
+  };
+
+  Header.prototype.setScore = function (score) {
+    var _this = this;
+
+    var duration = 200;
+    var dScore = animation_1.linear(this.score, score, duration);
+    var animation = animation_1.animationBuilder(function () {}, function (dt) {
+      _this.displayScore(Math.floor(dScore(dt)));
+    }, duration);
+    console.log(animation);
+    animation.then();
+    this.score = score;
+  };
+
+  Header.prototype.displayScore = function (score) {
+    this.$.querySelector("#score-number").innerText = "" + score;
+  };
+
+  Header.prototype.highlightNext = function (flag) {
+    var scoreBox = this.$.querySelector("#score");
+    if (flag) scoreBox.classList.add("highlight");else scoreBox.classList.remove("highlight");
+  };
+
+  return Header;
+}();
+
+exports.Header = Header;
+},{"./animation":"animation.ts"}],"Board.ts":[function(require,module,exports) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -553,6 +682,10 @@ var interfaces_1 = require("./interfaces");
 
 var utils_1 = require("./utils");
 
+var Header_1 = require("./Header");
+
+var animation_1 = require("./animation");
+
 var DURATION = 200;
 var SEMIAUTO_PUSH_RATIO = 0.6;
 
@@ -562,16 +695,14 @@ function () {
   function Board() {
     this.matrix = new matrix_1.Matrix();
     this.isDragging = false;
-    this.moveableCells = [];
-    this.maxPos = 0;
     this.delta = 0;
     this.pos = 0;
     this.x = null;
     this.y = null;
     this.isMoving = false;
     this.$ = document.getElementById("board");
+    this.header = new Header_1.Header();
     this.bindHandlers();
-    this.setMaxPos();
     this.matrix.init();
   }
 
@@ -584,18 +715,23 @@ function () {
 
       _this.animateNext(nextPos, number).then(function () {
         _this.render.bind(_this)();
+
+        if (_this.matrix.getScore() != 0 && _this.matrix.isFinished()) {
+          setTimeout(function () {
+            alert("\uB2D8 \uC8FC\uAE08! \uB2F9\uC2E0\uC758 \uC810\uC218 [" + _this.matrix.getScore() + "]");
+
+            _this.matrix.init();
+          }, 500);
+          return;
+        }
       });
     });
     this.matrix.on("init", this.render.bind(this));
     this.matrix.on("merge", function (merged) {
-      console.log(merged);
-
-      _this.flipMergedCards(merged).then(function () {
-        _this.render.bind(_this);
-      });
+      _this.flipMergedCards(merged);
     });
-    this.matrix.on("set-next", setNext.bind(this));
-    this.matrix.on("set-score", setScore.bind(this));
+    this.matrix.on("set-next", this.header.setNext.bind(this.header));
+    this.matrix.on("set-score", this.header.setScore.bind(this.header));
     window.addEventListener("resize", this.onResize.bind(this));
     window.addEventListener("mousedown", this.dragStart.bind(this));
     window.addEventListener("mouseup", this.dragEnd.bind(this));
@@ -615,21 +751,16 @@ function () {
     }
 
     var startAt = null;
+    var maxPos = this.calculateMaxPos();
     var _a = this.direction,
         dx = _a[0],
         dy = _a[1];
-    var rotate = interpolateLinear(0, 180, duration);
+    var rotate = animation_1.linear(0, 180, duration);
     var rotateDirection = this.isVertical() ? "rotateY" : "rotateX";
-    var reverseRotate = interpolateLinear(180, 0, duration);
+    var reverseRotate = animation_1.linear(180, 0, duration);
     merged.forEach(function (_a) {
-      var idx = _a.idx,
-          before = _a.before,
-          after = _a.after;
-
-      var _b = utils_1.toRowCol(idx),
-          row = _b[0],
-          col = _b[1];
-
+      var row = _a.row,
+          col = _a.col;
       var deMergedIdx = utils_1.toIdx([row - dx, col - dy]);
 
       var node = _this.getCardNodeByIdx(deMergedIdx);
@@ -648,17 +779,15 @@ function () {
         if (dt >= duration / 2) halfWayDone = true;
         merged.forEach(function (_a) {
           var idx = _a.idx,
+              row = _a.row,
+              col = _a.col,
               before = _a.before,
               after = _a.after;
 
-          var node = _this.$.querySelector(".card[idx=\"" + idx + "\"]");
+          var node = _this.getCardNodeByIdx(idx);
 
-          var _b = utils_1.toRowCol(idx),
-              row = _b[0],
-              col = _b[1];
-
-          var x = row * _this.maxPos,
-              y = col * _this.maxPos;
+          var x = row * maxPos,
+              y = col * maxPos;
           changeCardNode(node, halfWayDone ? after : before);
           node.style.zIndex = "20";
           node.style.transform = "translate(" + y + "px, " + x + "px) " + rotateDirection + "(" + Math.floor(halfWayDone ? reverseRotate(dt) : rotate(dt)) + "deg)";
@@ -679,7 +808,9 @@ function () {
   Board.prototype.onKeyDown = function (event) {
     var _this = this;
 
+    var maxPos = this.calculateMaxPos();
     var key = event.key;
+    this.direction = null;
 
     switch (key) {
       case "ArrowUp":
@@ -699,13 +830,13 @@ function () {
         break;
     }
 
-    this.animateCards(0, this.maxPos, 60).then(function () {
-      _this.move();
+    if (!this.direction) return;
+    this.animateCards(0, maxPos, 60).then(function () {
+      _this.matrix.move(_this.direction);
     });
   };
 
   Board.prototype.onResize = function () {
-    this.setMaxPos();
     this.resizeCards();
     this.translateCards(0);
   };
@@ -723,11 +854,18 @@ function () {
   Board.prototype.dragEnd = function () {
     var _this = this;
 
-    var delta = Math.min(this.maxPos, this.delta);
+    var maxPos = this.calculateMaxPos();
+    var delta = Math.min(maxPos, this.delta);
 
-    if (delta / this.maxPos > SEMIAUTO_PUSH_RATIO) {
-      this.animateCards(delta, this.maxPos, 70).then(function () {
-        _this.move();
+    if (delta / maxPos > SEMIAUTO_PUSH_RATIO) {
+      this.animateCards(delta, maxPos, 70).then(function () {
+        _this.matrix.move(_this.direction);
+
+        _this.header.highlightNext(false);
+
+        _this.delta = 0;
+        _this.isDragging = false;
+        _this.direction = null;
       });
     } else {
       this.animateCards(delta, 0, 70).then(function () {
@@ -738,24 +876,13 @@ function () {
     }
   };
 
-  Board.prototype.move = function () {
-    this.isDragging = false;
-    this.delta = 0;
-    if (!this.direction) return;
-    var merged = this.matrix.merge(this.direction);
-    if (merged > 0) this.matrix.addNext(this.direction);
-    this.direction = null;
-  };
-
   Board.prototype.animateCards = function (from, to, duration) {
-    var _this = this;
-
     if (from === void 0) {
       from = 0;
     }
 
     if (to === void 0) {
-      to = this.maxPos;
+      to = 1;
     }
 
     if (duration === void 0) {
@@ -763,25 +890,21 @@ function () {
     }
 
     var isLocked = this.isMoving == true;
-    this.isMoving = true;
     var startAt = null;
     var translateCards = this.translateCards.bind(this);
-    var linear = interpolateLinear(from, to, duration);
+    var d = animation_1.linear(from, to, duration);
     return new Promise(function (resolve, reject) {
-      if (isLocked) reject();
-
       var step = function step(timestamp) {
         if (!startAt) startAt = timestamp;
+        var dt = timestamp - startAt;
 
         if (timestamp > startAt + duration) {
           resolve();
-          highlightNext(false);
-          _this.isMoving = false;
           translateCards(to);
           return;
         }
 
-        translateCards(linear(timestamp - startAt));
+        translateCards(d(dt));
         requestAnimationFrame(step);
       };
 
@@ -803,17 +926,18 @@ function () {
     this.$.appendChild(node);
     changeCardNode(node, number);
     node.style.zIndex = "10";
-    var x = interpolateLinear(nextPos[0] - dx, nextPos[0], duration);
-    var y = interpolateLinear(nextPos[1] - dy, nextPos[1], duration);
-    var opacity = interpolateLinear(0, 1, duration);
-    node.style.transform = "translate(" + y(0) * this.maxPos + "px, " + x(0) * this.maxPos + "px)";
+    var x = animation_1.linear(nextPos[0] - dx, nextPos[0], duration);
+    var y = animation_1.linear(nextPos[1] - dy, nextPos[1], duration);
+    var maxPos = this.calculateMaxPos();
+    var opacity = animation_1.linear(0, 1, duration);
+    node.style.transform = "translate(" + y(0) * maxPos + "px, " + x(0) * maxPos + "px)";
     this.resizeCards();
     var startAt = null;
     return new Promise(function (resolve, reject) {
       var step = function step(timestamp) {
         if (!startAt) startAt = timestamp;
         var dt = timestamp - startAt;
-        node.style.transform = "translate(" + y(dt) * _this.maxPos + "px, " + x(dt) * _this.maxPos + "px)";
+        node.style.transform = "translate(" + y(dt) * maxPos + "px, " + x(dt) * maxPos + "px)";
         node.style.opacity = "" + opacity(dt);
 
         if (timestamp > startAt + duration) {
@@ -831,14 +955,13 @@ function () {
   };
 
   Board.prototype.dragging = function (event) {
-    var _this = this;
-
     if (!this.isDragging) return;
 
     var _a = touchEventHelper(event),
         clientX = _a.clientX,
         clientY = _a.clientY;
 
+    var maxPos = this.calculateMaxPos();
     var dx = clientX - this.x,
         dy = clientY - this.y;
     if (dx == 0 && dy == 0) return;
@@ -848,9 +971,6 @@ function () {
 
     if (!this.direction) {
       this.direction = direction;
-      this.moveableCells = this.matrix.getMoveableCellIndices(direction).map(function (idx) {
-        return _this.getCardNodeByIdx(idx);
-      });
       this.pos = this.isVertical() ? clientX : clientY;
     }
 
@@ -866,9 +986,9 @@ function () {
       return;
     }
 
-    highlightNext(delta / this.maxPos > SEMIAUTO_PUSH_RATIO);
+    this.header.highlightNext(delta / maxPos > SEMIAUTO_PUSH_RATIO);
     this.delta = delta;
-    this.translateCards(Math.min(delta, this.maxPos));
+    this.translateCards(Math.min(delta, maxPos));
   };
 
   Board.prototype.translateCards = function (delta) {
@@ -881,21 +1001,22 @@ function () {
         dy = _b[1];
 
     var indices = this.matrix.getMoveableCellIndices(this.direction);
+    var maxPos = this.calculateMaxPos();
     this.matrix.iterate(function (_a) {
       var row = _a[0],
           col = _a[1],
           idx = _a[2],
           cell = _a[3];
       if (cell.number == 0) return;
-      var y = row * _this.maxPos,
-          x = col * _this.maxPos;
+      var y = row * maxPos,
+          x = col * maxPos;
 
       if (indices.indexOf(idx) != -1) {
         y += delta * dx;
         x += delta * dy;
       }
 
-      var node = _this.$.querySelector(".card[idx=\"" + idx + "\"]");
+      var node = _this.getCardNodeByIdx(idx);
 
       node.style.zIndex = "" + _this.matrix.at(idx).score;
       node.style.transform = "translate(" + x + "px, " + y + "px)";
@@ -913,8 +1034,8 @@ function () {
       _this.$.removeChild(node);
     });
     this.matrix.iterate(function (_a) {
-      var _ = _a[0],
-          _ = _a[1],
+      var row = _a[0],
+          col = _a[1],
           idx = _a[2],
           cell = _a[3];
       if (cell.number == 0) return;
@@ -925,12 +1046,6 @@ function () {
     });
     this.resizeCards();
     this.translateCards(0);
-
-    if (this.matrix.getScore() != 0 && this.matrix.isFinished()) {
-      alert("\uB2D8 \uC8FC\uAE08! \uB2F9\uC2E0\uC758 \uC810\uC218 [" + this.matrix.getScore() + "]");
-      this.matrix.init();
-      return;
-    }
   };
 
   Board.prototype.resizeCards = function () {
@@ -938,19 +1053,19 @@ function () {
 
     this.$.querySelectorAll(".card").forEach(function (node) {
       if (!(node instanceof HTMLDivElement)) return;
-      node.style.width = node.style.height = _this.getCardSize() + "px";
+      node.style.width = node.style.height = _this.calculateCardSize() + "px";
     });
   };
 
-  Board.prototype.getCardSize = function () {
+  Board.prototype.calculateCardSize = function () {
     var cellNode = this.$.querySelector(".cell");
     return cellNode.offsetHeight;
   };
 
-  Board.prototype.setMaxPos = function () {
+  Board.prototype.calculateMaxPos = function () {
     if (this.$.childNodes.length == 0) return 0;
     var gapSize = parseInt(getComputedStyle(this.$).rowGap);
-    this.maxPos = gapSize + this.getCardSize();
+    return gapSize + this.calculateCardSize();
   };
 
   Board.prototype.getCardPositionByIdx = function (idx) {
@@ -1001,30 +1116,11 @@ function createCardNode(idx) {
   return node;
 }
 
-function interpolateLinear(from, to, duration) {
-  return function (timestamp) {
-    return timestamp / duration * (to - from) + from;
-  };
-}
-
 function touchEventHelper(event) {
   if (event instanceof MouseEvent) return event;
   return event.touches[0];
 }
-
-function setNext(next) {
-  document.body.querySelector("#next-number").innerText = "" + next;
-}
-
-function setScore(score) {
-  document.body.querySelector("#score-number").innerText = "" + score;
-}
-
-function highlightNext(flag) {
-  var scoreBox = document.body.querySelector("#score");
-  if (flag) scoreBox.classList.add("highlight");else scoreBox.classList.remove("highlight");
-}
-},{"./models/matrix":"models/matrix.ts","./interfaces":"interfaces.ts","./utils":"utils.ts"}],"../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/bundle-url.js":[function(require,module,exports) {
+},{"./models/matrix":"models/matrix.ts","./interfaces":"interfaces.ts","./utils":"utils.ts","./Header":"Header.ts","./animation":"animation.ts"}],"../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/bundle-url.js":[function(require,module,exports) {
 var bundleURL = null;
 
 function getBundleURLCached() {
@@ -1151,7 +1247,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "46703" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "39181" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};
