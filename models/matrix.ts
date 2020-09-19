@@ -87,6 +87,7 @@ export class Matrix extends Model {
   merge(direction: Direction) {
     const [dx, dy] = direction;
     let cnt = 0;
+    const merged = [];
     const indices = this.getMoveableCellIndices(direction);
     indices
       .map((idx) => toRowCol(idx))
@@ -95,6 +96,12 @@ export class Matrix extends Model {
           _y = col + dy;
         const oldCell = this.at([_x, _y]);
         const newCell = this.at([row, col]);
+        if (oldCell.number != 0)
+          merged.push({
+            idx: toIdx([_x, _y]),
+            before: oldCell.number,
+            after: newCell.number + oldCell.number,
+          });
         this.mutate([_x, _y], {
           number: oldCell.number + newCell.number,
           score: oldCell.score + newCell.score + 2,
@@ -105,7 +112,7 @@ export class Matrix extends Model {
         });
         cnt += 1;
       });
-    this.emit("merge");
+    this.emit("merge", merged);
     if (cnt > 0) this.setScore();
     return cnt;
   }

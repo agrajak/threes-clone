@@ -1,6 +1,6 @@
 import { Matrix } from "./models/matrix";
 import { Cell, Direction, LEFT, RIGHT, UP, DOWN } from "./interfaces";
-import { pickRandomOne } from "./utils";
+import { pickRandomOne, toRowCol } from "./utils";
 
 const DURATION = 200;
 const SEMIAUTO_PUSH_RATIO = 0.6;
@@ -30,7 +30,12 @@ export default class Board {
       });
     });
     this.matrix.on("init", this.render.bind(this));
-    this.matrix.on("merge", this.render.bind(this));
+    this.matrix.on("merge", (merged) => {
+      console.log(merged);
+      this.flipMergedCards(merged).then(() => {
+        this.render.bind(this);
+      });
+    });
     this.matrix.on("set-next", setNext.bind(this));
     this.matrix.on("set-score", setScore.bind(this));
 
@@ -43,6 +48,41 @@ export default class Board {
     window.addEventListener("touchend", this.dragEnd.bind(this));
     window.addEventListener("touchmove", this.dragging.bind(this));
     window.addEventListener("keydown", this.onKeyDown.bind(this));
+  }
+  flipMergedCards(merged, duration = 200) {
+    let startAt = null;
+    const rotate = interpolateLinear(0, 180, duration);
+    const rotateDirection = this.isVertical() ? "rotateY" : "rotateX";
+    const reverseRotate = interpolateLinear(180, 0, duration);
+    let halfWayDone = false;
+    return new Promise((resolve) => {
+      const step = (timestamp) => {
+        if (!startAt) startAt = timestamp;
+        const dt = timestamp - startAt;
+        if (dt >= duration / 2) halfWayDone = true;
+        merged.forEach(({ idx, before, after }) => {
+          const node = this.$.querySelector(
+            `.card[idx="${idx}"]`
+          ) as HTMLDivElement;
+          const [row, col] = toRowCol(idx);
+          const x = row * this.maxPos,
+            y = col * this.maxPos;
+
+          changeCardNode(node, halfWayDone ? after : before);
+
+          node.style.zIndex = `20`;
+          node.style.transform = `translate(${y}px, ${x}px) ${rotateDirection}(${Math.floor(
+            halfWayDone ? reverseRotate(dt) : rotate(dt)
+          )}deg)`;
+        });
+        if (timestamp > startAt + duration) {
+          resolve();
+          return;
+        }
+        requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
   }
   onKeyDown(event: KeyboardEvent) {
     const { key } = event;
@@ -140,9 +180,8 @@ export default class Board {
 
     return new Promise((resolve, reject) => {
       const step = (timestamp) => {
-        const dt = timestamp - startAt;
-        console.log("step");
         if (!startAt) startAt = timestamp;
+        const dt = timestamp - startAt;
         node.style.transform = `translate(${y(dt) * this.maxPos}px, ${
           x(dt) * this.maxPos
         }px)`;
