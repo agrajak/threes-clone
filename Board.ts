@@ -1,12 +1,14 @@
 import { Matrix } from "./models/matrix";
 import { Cell, Direction, LEFT, RIGHT, UP, DOWN } from "./interfaces";
 import { pickRandomOne, toIdx, toRowCol } from "./utils";
+import { Header } from "./Header";
 
 const DURATION = 200;
 const SEMIAUTO_PUSH_RATIO = 0.6;
 export default class Board {
   $: HTMLDivElement;
   matrix = new Matrix();
+  header: Header;
   isDragging = false;
   direction: Direction;
   moveableCells: HTMLDivElement[] = [];
@@ -19,6 +21,7 @@ export default class Board {
 
   constructor() {
     this.$ = document.getElementById("board") as HTMLDivElement;
+    this.header = new Header(document.body.querySelector("#header"));
     this.bindHandlers();
     this.setMaxPos();
     this.matrix.init();
@@ -36,8 +39,8 @@ export default class Board {
         this.render.bind(this);
       });
     });
-    this.matrix.on("set-next", setNext.bind(this));
-    this.matrix.on("set-score", setScore.bind(this));
+    this.matrix.on("set-next", this.header.setNext);
+    this.matrix.on("set-score", this.header.setScore);
 
     window.addEventListener("resize", this.onResize.bind(this));
     window.addEventListener("mousedown", this.dragStart.bind(this));
@@ -163,7 +166,7 @@ export default class Board {
         if (!startAt) startAt = timestamp;
         if (timestamp > startAt + duration) {
           resolve();
-          highlightNext(false);
+          this.header.highlightNext(false);
           this.isMoving = false;
           translateCards(to);
           return;
@@ -240,7 +243,7 @@ export default class Board {
       return;
     }
 
-    highlightNext(delta / this.maxPos > SEMIAUTO_PUSH_RATIO);
+    this.header.highlightNext(delta / this.maxPos > SEMIAUTO_PUSH_RATIO);
     this.delta = delta;
 
     this.translateCards(Math.min(delta, this.maxPos));
@@ -353,19 +356,4 @@ function interpolateLinear(from, to, duration) {
 function touchEventHelper(event: MouseEvent | TouchEvent) {
   if (event instanceof MouseEvent) return event;
   return event.touches[0];
-}
-function setNext(next) {
-  (document.body.querySelector(
-    "#next-number"
-  ) as HTMLDivElement).innerText = `${next}`;
-}
-function setScore(score) {
-  (document.body.querySelector(
-    "#score-number"
-  ) as HTMLDivElement).innerText = `${score}`;
-}
-function highlightNext(flag: boolean) {
-  const scoreBox = document.body.querySelector("#score") as HTMLDivElement;
-  if (flag) scoreBox.classList.add("highlight");
-  else scoreBox.classList.remove("highlight");
 }
