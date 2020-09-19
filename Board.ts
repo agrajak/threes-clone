@@ -25,7 +25,7 @@ export default class Board {
   }
   bindHandlers() {
     this.matrix.on("add", ({ nextPos, number }) => {
-      this.translateNext(nextPos, number).then(() => {
+      this.animateNext(nextPos, number).then(() => {
         this.render.bind(this)();
       });
     });
@@ -60,14 +60,14 @@ export default class Board {
         this.direction = RIGHT;
         break;
     }
-    this.translate(0, this.maxPos, 60).then(() => {
+    this.animateCards(0, this.maxPos, 60).then(() => {
       this.move();
     });
   }
   onResize() {
     this.setMaxPos();
     this.resizeCards();
-    this.translateCells(0);
+    this.translateCards(0);
   }
   dragStart(event) {
     const { clientX, clientY } = touchEventHelper(event);
@@ -78,11 +78,11 @@ export default class Board {
   dragEnd() {
     let delta = Math.min(this.maxPos, this.delta);
     if (delta / this.maxPos > SEMIAUTO_PUSH_RATIO) {
-      this.translate(delta, this.maxPos, 70).then(() => {
+      this.animateCards(delta, this.maxPos, 70).then(() => {
         this.move();
       });
     } else {
-      this.translate(delta, 0, 70).then(() => {
+      this.animateCards(delta, 0, 70).then(() => {
         this.isDragging = false;
         this.direction = null;
         this.pos = null;
@@ -97,11 +97,12 @@ export default class Board {
     if (merged > 0) this.matrix.addNext(this.direction);
     this.direction = null;
   }
-  translate(from = 0, to = this.maxPos, duration = 100) {
+
+  animateCards(from = 0, to = this.maxPos, duration = 100) {
     const isLocked = this.isMoving == true;
     this.isMoving = true;
     let startAt = null;
-    let translateCells = this.translateCells.bind(this);
+    let translateCards = this.translateCards.bind(this);
     const linear = interpolateLinear(from, to, duration);
     return new Promise((resolve, reject) => {
       if (isLocked) reject();
@@ -111,16 +112,16 @@ export default class Board {
           resolve();
           highlightNext(false);
           this.isMoving = false;
-          translateCells(to);
+          translateCards(to);
           return;
         }
-        translateCells(linear(timestamp - startAt));
+        translateCards(linear(timestamp - startAt));
         requestAnimationFrame(step);
       };
       requestAnimationFrame(step);
     });
   }
-  translateNext(nextPos, number, duration = 100) {
+  animateNext(nextPos, number, duration = 100) {
     const node = createCardNode(99);
     const [dx, dy] = this.direction;
     this.$.appendChild(node);
@@ -190,10 +191,10 @@ export default class Board {
     highlightNext(delta / this.maxPos > SEMIAUTO_PUSH_RATIO);
     this.delta = delta;
 
-    this.translateCells(Math.min(delta, this.maxPos));
+    this.translateCards(Math.min(delta, this.maxPos));
   }
 
-  translateCells(delta) {
+  translateCards(delta) {
     const [dx, dy] = this.direction ?? [0, 0];
     const indices = this.matrix.getMoveableCellIndices(this.direction);
     this.matrix.iterate(([row, col, idx, cell]) => {
@@ -228,7 +229,7 @@ export default class Board {
       this.$.appendChild(node);
     });
     this.resizeCards();
-    this.translateCells(0);
+    this.translateCards(0);
     if (this.matrix.getScore() != 0 && this.matrix.isFinished()) {
       alert(`님 주금! 당신의 점수 [${this.matrix.getScore()}]`);
       this.matrix.init();
