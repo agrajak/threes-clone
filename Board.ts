@@ -58,8 +58,7 @@ export default class Board {
     const rotateDirection = this.isVertical() ? "rotateY" : "rotateX";
     const reverseRotate = interpolateLinear(180, 0, duration);
 
-    merged.forEach(({ idx, before, after }) => {
-      const [row, col] = toRowCol(idx);
+    merged.forEach(({ row, col }) => {
       const deMergedIdx = toIdx([row - dx, col - dy]);
       const node = this.getCardNodeByIdx(deMergedIdx);
       if (node) {
@@ -75,11 +74,10 @@ export default class Board {
         if (!startAt) startAt = timestamp;
         const dt = timestamp - startAt;
         if (dt >= duration / 2) halfWayDone = true;
-        merged.forEach(({ idx, before, after }) => {
+        merged.forEach(({ idx, row, col, before, after }) => {
           const node = this.$.querySelector(
             `.card[idx="${idx}"]`
           ) as HTMLDivElement;
-          const [row, col] = toRowCol(idx);
           const x = row * this.maxPos,
             y = col * this.maxPos;
 
@@ -116,7 +114,7 @@ export default class Board {
         break;
     }
     this.animateCards(0, this.maxPos, 60).then(() => {
-      this.move();
+      this.matrix.move(this.direction);
     });
   }
   onResize() {
@@ -134,7 +132,10 @@ export default class Board {
     let delta = Math.min(this.maxPos, this.delta);
     if (delta / this.maxPos > SEMIAUTO_PUSH_RATIO) {
       this.animateCards(delta, this.maxPos, 70).then(() => {
-        this.move();
+        this.matrix.move(this.direction);
+        this.delta = 0;
+        this.isDragging = false;
+        this.direction = null;
       });
     } else {
       this.animateCards(delta, 0, 70).then(() => {
@@ -143,14 +144,6 @@ export default class Board {
         this.pos = null;
       });
     }
-  }
-  move() {
-    this.isDragging = false;
-    this.delta = 0;
-    if (!this.direction) return;
-    const merged = this.matrix.merge(this.direction);
-    if (merged > 0) this.matrix.addNext(this.direction);
-    this.direction = null;
   }
 
   animateCards(from = 0, to = this.maxPos, duration = 100) {

@@ -84,6 +84,11 @@ export class Matrix extends Model {
   setScore() {
     this.emit("set-score", this.getScore());
   }
+  move(direction: Direction) {
+    if (!direction) return;
+    const merged = this.merge(direction);
+    if (merged > 0) this.addNext(direction);
+  }
   merge(direction: Direction) {
     const [dx, dy] = direction;
     let cnt = 0;
@@ -99,6 +104,8 @@ export class Matrix extends Model {
         if (oldCell.number != 0)
           merged.push({
             idx: toIdx([_x, _y]),
+            row: _x,
+            col: _y,
             before: oldCell.number,
             after: newCell.number + oldCell.number,
           });
