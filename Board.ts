@@ -31,8 +31,8 @@ export default class Board {
     });
     this.matrix.on("init", this.render.bind(this));
     this.matrix.on("merge", this.render.bind(this));
-    this.matrix.on("set-next", this.setNext.bind(this));
-    this.matrix.on("set-score", this.setScore.bind(this));
+    this.matrix.on("set-next", setNext.bind(this));
+    this.matrix.on("set-score", setScore.bind(this));
 
     window.addEventListener("resize", this.onResize.bind(this));
     window.addEventListener("mousedown", this.dragStart.bind(this));
@@ -70,7 +70,7 @@ export default class Board {
     this.translateCells(0);
   }
   dragStart(event) {
-    const { clientX, clientY } = this.touchEventHelper(event);
+    const { clientX, clientY } = touchEventHelper(event);
     this.x = clientX;
     this.y = clientY;
     this.isDragging = true;
@@ -97,11 +97,6 @@ export default class Board {
     if (merged > 0) this.matrix.addNext(this.direction);
     this.direction = null;
   }
-  setScore(score) {
-    (document.body.querySelector(
-      "#score-number"
-    ) as HTMLDivElement).innerText = `${score}`;
-  }
   translate(from = 0, to = this.maxPos, duration = 100) {
     const isLocked = this.isMoving == true;
     this.isMoving = true;
@@ -114,7 +109,7 @@ export default class Board {
         if (!startAt) startAt = timestamp;
         if (timestamp > startAt + duration) {
           resolve();
-          this.highlightNext(false);
+          highlightNext(false);
           this.isMoving = false;
           translateCells(to);
           return;
@@ -132,18 +127,16 @@ export default class Board {
     changeCardNode(node, number);
     node.style.zIndex = "10";
 
-    const fromX = nextPos[0] - dx;
-    const fromY = nextPos[1] - dy;
+    const x = interpolateLinear(nextPos[0] - dx, nextPos[0], duration);
+    const y = interpolateLinear(nextPos[1] - dy, nextPos[1], duration);
+    const opacity = interpolateLinear(0, 1, duration);
 
-    node.style.transform = `translate(${fromY * this.maxPos}px, ${
-      fromX * this.maxPos
+    node.style.transform = `translate(${y(0) * this.maxPos}px, ${
+      x(0) * this.maxPos
     }px)`;
     this.resizeCards();
     let startAt = null;
 
-    const x = interpolateLinear(nextPos[0] - dx, nextPos[0], duration);
-    const y = interpolateLinear(nextPos[1] - dy, nextPos[1], duration);
-    console.log(x(0), x(duration), y(0), y(duration));
     return new Promise((resolve, reject) => {
       const step = (timestamp) => {
         const dt = timestamp - startAt;
@@ -152,6 +145,7 @@ export default class Board {
         node.style.transform = `translate(${y(dt) * this.maxPos}px, ${
           x(dt) * this.maxPos
         }px)`;
+        node.style.opacity = `${opacity(dt)}`;
         if (timestamp > startAt + duration) {
           this.$.removeChild(node);
           resolve();
@@ -162,23 +156,9 @@ export default class Board {
       requestAnimationFrame(step);
     });
   }
-  touchEventHelper(event: MouseEvent | TouchEvent) {
-    if (event instanceof MouseEvent) return event;
-    return event.touches[0];
-  }
-  setNext(next) {
-    (document.body.querySelector(
-      "#next-number"
-    ) as HTMLDivElement).innerText = `${next}`;
-  }
-  highlightNext(flag: boolean) {
-    const scoreBox = document.body.querySelector("#score") as HTMLDivElement;
-    if (flag) scoreBox.classList.add("highlight");
-    else scoreBox.classList.remove("highlight");
-  }
   dragging(event) {
     if (!this.isDragging) return;
-    const { clientX, clientY } = this.touchEventHelper(event);
+    const { clientX, clientY } = touchEventHelper(event);
     const dx = clientX - this.x,
       dy = clientY - this.y;
     if (dx == 0 && dy == 0) return;
@@ -207,7 +187,7 @@ export default class Board {
       return;
     }
 
-    this.highlightNext(delta / this.maxPos > SEMIAUTO_PUSH_RATIO);
+    highlightNext(delta / this.maxPos > SEMIAUTO_PUSH_RATIO);
     this.delta = delta;
 
     this.translateCells(Math.min(delta, this.maxPos));
@@ -316,4 +296,23 @@ function interpolateLinear(from, to, duration) {
   return function (timestamp) {
     return (timestamp / duration) * (to - from) + from;
   };
+}
+function touchEventHelper(event: MouseEvent | TouchEvent) {
+  if (event instanceof MouseEvent) return event;
+  return event.touches[0];
+}
+function setNext(next) {
+  (document.body.querySelector(
+    "#next-number"
+  ) as HTMLDivElement).innerText = `${next}`;
+}
+function setScore(score) {
+  (document.body.querySelector(
+    "#score-number"
+  ) as HTMLDivElement).innerText = `${score}`;
+}
+function highlightNext(flag: boolean) {
+  const scoreBox = document.body.querySelector("#score") as HTMLDivElement;
+  if (flag) scoreBox.classList.add("highlight");
+  else scoreBox.classList.remove("highlight");
 }
