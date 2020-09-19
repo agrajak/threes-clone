@@ -1,6 +1,6 @@
 import { Matrix } from "./models/matrix";
 import { Cell, Direction, LEFT, RIGHT, UP, DOWN } from "./interfaces";
-import { pickRandomOne, toRowCol } from "./utils";
+import { pickRandomOne, toIdx, toRowCol } from "./utils";
 
 const DURATION = 200;
 const SEMIAUTO_PUSH_RATIO = 0.6;
@@ -51,11 +51,24 @@ export default class Board {
   }
   flipMergedCards(merged, duration = 200) {
     let startAt = null;
+    const [dx, dy] = this.direction;
     const rotate = interpolateLinear(0, 180, duration);
     const rotateDirection = this.isVertical() ? "rotateY" : "rotateX";
     const reverseRotate = interpolateLinear(180, 0, duration);
+
+    merged.forEach(({ idx, before, after }) => {
+      const [row, col] = toRowCol(idx);
+      const deMergedIdx = toIdx([row - dx, col - dy]);
+      const node = this.getCardNodeByIdx(deMergedIdx);
+      if (node) {
+        node.style.display = "none";
+      }
+    });
+
     let halfWayDone = false;
+
     return new Promise((resolve) => {
+      if (merged.length == 0) resolve();
       const step = (timestamp) => {
         if (!startAt) startAt = timestamp;
         const dt = timestamp - startAt;
