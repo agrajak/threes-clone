@@ -1,3 +1,5 @@
+import Board from "./Board";
+
 export function animationBuilder(
   onResolve: Function,
   onRun: Function,
@@ -16,4 +18,15 @@ export function animationBuilder(
     };
     requestAnimationFrame(step);
   });
+}
+export class BoardAnimation {
+  board: Board;
+  constructor(board) {
+    this.board = board;
+  }
+}
+export function linear(from, to, duration) {
+  return function (timestamp) {
+    return (timestamp / duration) * (to - from) + from;
+  };
 }

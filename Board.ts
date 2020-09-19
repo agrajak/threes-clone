@@ -2,6 +2,7 @@ import { Matrix } from "./models/matrix";
 import { Cell, Direction, LEFT, RIGHT, UP, DOWN } from "./interfaces";
 import { pickRandomOne, toIdx, toRowCol } from "./utils";
 import { Header } from "./Header";
+import { linear } from "./animation";
 
 const DURATION = 200;
 const SEMIAUTO_PUSH_RATIO = 0.6;
@@ -57,9 +58,9 @@ export default class Board {
     let startAt = null;
     const maxPos = this.calculateMaxPos();
     const [dx, dy] = this.direction;
-    const rotate = interpolateLinear(0, 180, duration);
+    const rotate = linear(0, 180, duration);
     const rotateDirection = this.isVertical() ? "rotateY" : "rotateX";
-    const reverseRotate = interpolateLinear(180, 0, duration);
+    const reverseRotate = linear(180, 0, duration);
 
     merged.forEach(({ row, col }) => {
       const deMergedIdx = toIdx([row - dx, col - dy]);
@@ -153,7 +154,7 @@ export default class Board {
     const isLocked = this.isMoving == true;
     let startAt = null;
     let translateCards = this.translateCards.bind(this);
-    const d = interpolateLinear(from, to, duration);
+    const d = linear(from, to, duration);
     return new Promise((resolve, reject) => {
       const step = (timestamp) => {
         if (!startAt) startAt = timestamp;
@@ -176,10 +177,10 @@ export default class Board {
     changeCardNode(node, number);
     node.style.zIndex = "10";
 
-    const x = interpolateLinear(nextPos[0] - dx, nextPos[0], duration);
-    const y = interpolateLinear(nextPos[1] - dy, nextPos[1], duration);
+    const x = linear(nextPos[0] - dx, nextPos[0], duration);
+    const y = linear(nextPos[1] - dy, nextPos[1], duration);
     const maxPos = this.calculateMaxPos();
-    const opacity = interpolateLinear(0, 1, duration);
+    const opacity = linear(0, 1, duration);
 
     node.style.transform = `translate(${y(0) * maxPos}px, ${x(0) * maxPos}px)`;
     this.resizeCards();
@@ -333,11 +334,6 @@ function createCardNode(idx) {
   return node;
 }
 
-function interpolateLinear(from, to, duration) {
-  return function (timestamp) {
-    return (timestamp / duration) * (to - from) + from;
-  };
-}
 function touchEventHelper(event: MouseEvent | TouchEvent) {
   if (event instanceof MouseEvent) return event;
   return event.touches[0];
