@@ -34,7 +34,6 @@ export default class Board {
     });
     this.matrix.on("init", this.render.bind(this));
     this.matrix.on("merge", (merged) => {
-      console.log(merged);
       this.flipMergedCards(merged).then(() => {
         this.render.bind(this);
       });
