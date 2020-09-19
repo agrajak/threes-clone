@@ -1,4 +1,4 @@
-import { animationBuilder, linear } from "./animation";
+import { animationFactory, linear } from "./animation";
 
 export class Header {
   $: HTMLDivElement;
@@ -16,8 +16,8 @@ export class Header {
   setScore(score) {
     const duration = 200;
     const dScore = linear(this.score, score, duration);
-    const animation = animationBuilder(
-      () => {},
+    const animation = animationFactory(
+      null,
       (dt) => {
         this.displayScore(Math.floor(dScore(dt)));
       },

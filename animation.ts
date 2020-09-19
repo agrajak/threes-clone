@@ -1,6 +1,6 @@
 import Board from "./Board";
 
-export function animationBuilder(
+export function animationFactory(
   onResolve: Function,
   onRun: Function,
   duration = 100
@@ -10,11 +10,12 @@ export function animationBuilder(
     const step = (timestamp) => {
       if (!startAt) startAt = timestamp;
       if (timestamp > startAt + duration) {
-        onResolve && onResolve();
+        if (onRun) onRun(duration);
+        if (onResolve) onResolve();
         resolve();
         return;
       }
-      onRun && onRun(timestamp - startAt);
+      if (onRun) onRun(timestamp - startAt);
       requestAnimationFrame(step);
     };
     requestAnimationFrame(step);
