@@ -1,5 +1,9 @@
+import { animationBuilder, linear } from "./animation";
+
 export class Header {
   $: HTMLDivElement;
+  score: number = 0;
+  next: number;
   constructor() {
     this.$ = document.getElementById("header") as HTMLDivElement;
   }
@@ -7,8 +11,24 @@ export class Header {
     (this.$.querySelector(
       "#next-number"
     ) as HTMLDivElement).innerText = `${next}`;
+    this.next = next;
   }
   setScore(score) {
+    const duration = 200;
+    const dScore = linear(this.score, score, duration);
+    const animation = animationBuilder(
+      () => {},
+      (dt) => {
+        this.displayScore(Math.floor(dScore(dt)));
+      },
+      duration
+    );
+    console.log(animation);
+    animation.then();
+
+    this.score = score;
+  }
+  displayScore(score) {
     (this.$.querySelector(
       "#score-number"
     ) as HTMLDivElement).innerText = `${score}`;

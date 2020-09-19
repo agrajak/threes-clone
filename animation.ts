@@ -8,6 +8,7 @@ export function animationBuilder(
   let startAt = null;
   return new Promise((resolve) => {
     const step = (timestamp) => {
+      if (!startAt) startAt = timestamp;
       if (timestamp > startAt + duration) {
         onResolve && onResolve();
         resolve();
