@@ -1,7 +1,7 @@
 export class Header {
   $: HTMLDivElement;
-  constructor($) {
-    this.$ = $;
+  constructor() {
+    this.$ = document.getElementById("header") as HTMLDivElement;
   }
   setNext(next) {
     (this.$.querySelector(

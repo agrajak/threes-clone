@@ -21,7 +21,7 @@ export default class Board {
 
   constructor() {
     this.$ = document.getElementById("board") as HTMLDivElement;
-    this.header = new Header(document.body.querySelector("#header"));
+    this.header = new Header();
     this.bindHandlers();
     this.setMaxPos();
     this.matrix.init();
@@ -39,8 +39,8 @@ export default class Board {
         this.render.bind(this);
       });
     });
-    this.matrix.on("set-next", this.header.setNext);
-    this.matrix.on("set-score", this.header.setScore);
+    this.matrix.on("set-next", this.header.setNext.bind(this.header));
+    this.matrix.on("set-score", this.header.setScore.bind(this.header));
 
     window.addEventListener("resize", this.onResize.bind(this));
     window.addEventListener("mousedown", this.dragStart.bind(this));
