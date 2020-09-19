@@ -102,6 +102,7 @@ export default class Board {
   onKeyDown(event: KeyboardEvent) {
     const maxPos = this.calculateMaxPos();
     const { key } = event;
+    this.direction = null;
     switch (key) {
       case "ArrowUp":
         this.direction = UP;
@@ -116,6 +117,7 @@ export default class Board {
         this.direction = RIGHT;
         break;
     }
+    if (!this.direction) return;
     this.animateCards(0, maxPos, 60).then(() => {
       this.matrix.move(this.direction);
     });

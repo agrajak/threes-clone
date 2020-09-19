@@ -119,7 +119,7 @@ export class Matrix extends Model {
           });
         this.mutate([_x, _y], {
           number: oldCell.number + newCell.number,
-          score: oldCell.score + newCell.score + 2,
+          score: oldCell.score + newCell.score + oldCell.number,
         });
         this.mutate([row, col], {
           number: 0,
