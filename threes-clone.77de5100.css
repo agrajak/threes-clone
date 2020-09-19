@@ -1,3 +1,6 @@
+html {
+  overflow: hidden;
+}
 body {
   display: flex;
   justify-content: center;
@@ -16,6 +19,7 @@ body {
   grid-template-rows: repeat(4, 1fr);
   column-gap: 10px;
   row-gap: 10px;
+  overflow: hidden;
 }
 #header {
   display: flex;
@@ -28,6 +32,11 @@ body {
   padding: 10px;
   margin: 10px;
   background-color: #eaeaea;
+  transition: border 100ms linear;
+  border: 1px solid #eaeaea;
+}
+.box.highlight {
+  border: 1px solid grey;
 }
 .box label {
   display: block;
@@ -58,6 +67,7 @@ body {
   justify-content: center;
   align-items: center;
   text-align: center;
+  backface-visibility: visible;
 }
 
 .card[value="1"] {

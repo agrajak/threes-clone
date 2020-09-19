@@ -308,16 +308,9 @@ function (_super) {
   function Matrix() {
     var _this = _super.call(this) || this;
 
-    _this.m = Array.from({
-      length: 16
-    }, function () {
-      return {
-        number: 0,
-        score: 0
-      };
-    });
+    _this.nextPos = null;
 
-    _this.emit("init");
+    _this.init();
 
     return _this;
   }
@@ -340,18 +333,12 @@ function (_super) {
       });
     }
 
-    this.emit("add");
+    this.emit("init");
+    this.setScore();
+    this.setNext();
   };
 
-  Matrix.prototype.getScore = function () {
-    return this.m.map(function (x) {
-      return x.score;
-    }).reduce(function (a, b) {
-      return a + b;
-    }, 0);
-  };
-
-  Matrix.prototype.add = function (direction, value) {
+  Matrix.prototype.setNextPos = function (direction) {
     var col = -1,
         row = -1;
     var available = [];
@@ -376,13 +363,26 @@ function (_super) {
     }
 
     if (available.length == 0) {
-      return false;
+      this.nextPos = null;
     }
 
-    this.mutate(utils_1.pickRandomOne(available), {
-      number: value
+    this.nextPos = utils_1.pickRandomOne(available);
+  };
+
+  Matrix.prototype.addNext = function (direction) {
+    var _a;
+
+    (_a = this.nextPos) !== null && _a !== void 0 ? _a : this.setNextPos(direction);
+    if (this.nextPos == null) return false;
+    this.mutate(this.nextPos, {
+      number: this.next
     });
-    this.emit("add");
+    this.emit("add", {
+      nextPos: this.nextPos,
+      number: this.next
+    });
+    this.setNext();
+    this.nextPos = null;
     return true;
   };
 
@@ -396,12 +396,48 @@ function (_super) {
     }, 0) == 0;
   };
 
+  Matrix.prototype.setNext = function () {
+    var pick = utils_1.pickRandomOne([1, 2, 3]);
+
+    if (pick == 1 || pick == 2) {
+      var numOfOne = this.m.map(function (cell) {
+        return cell.number;
+      }).filter(function (x) {
+        return x == 1;
+      }).length;
+      var numOfTwo = this.m.map(function (cell) {
+        return cell.number;
+      }).filter(function (x) {
+        return x == 2;
+      }).length;
+      if (numOfOne > numOfTwo + 2) pick = 2;else if (numOfTwo > numOfOne + 2) pick = 1;
+    }
+
+    this.next = pick;
+    this.emit("set-next", this.next);
+  };
+
+  Matrix.prototype.getScore = function () {
+    var _a;
+
+    return (_a = this.m.map(function (x) {
+      return x.score;
+    }).reduce(function (a, b) {
+      return a + b;
+    }, 0)) !== null && _a !== void 0 ? _a : 0;
+  };
+
+  Matrix.prototype.setScore = function () {
+    this.emit("set-score", this.getScore());
+  };
+
   Matrix.prototype.merge = function (direction) {
     var _this = this;
 
     var dx = direction[0],
         dy = direction[1];
     var cnt = 0;
+    var merged = [];
     var indices = this.getMoveableCellIndices(direction);
     indices.map(function (idx) {
       return utils_1.toRowCol(idx);
@@ -416,6 +452,12 @@ function (_super) {
 
       var newCell = _this.at([row, col]);
 
+      if (oldCell.number != 0) merged.push({
+        idx: utils_1.toIdx([_x, _y]),
+        before: oldCell.number,
+        after: newCell.number + oldCell.number
+      });
+
       _this.mutate([_x, _y], {
         number: oldCell.number + newCell.number,
         score: oldCell.score + newCell.score + 2
@@ -428,7 +470,8 @@ function (_super) {
 
       cnt += 1;
     });
-    this.emit("merge");
+    this.emit("merge", merged);
+    if (cnt > 0) this.setScore();
     return cnt;
   };
 
@@ -511,6 +554,7 @@ var interfaces_1 = require("./interfaces");
 var utils_1 = require("./utils");
 
 var DURATION = 200;
+var SEMIAUTO_PUSH_RATIO = 0.6;
 
 var Board =
 /** @class */
@@ -522,21 +566,36 @@ function () {
     this.maxPos = 0;
     this.delta = 0;
     this.pos = 0;
-    this.next = null;
     this.x = null;
     this.y = null;
     this.isMoving = false;
     this.$ = document.getElementById("board");
     this.bindHandlers();
-    this.render();
     this.setMaxPos();
     this.matrix.init();
-    this.setNext();
   }
 
   Board.prototype.bindHandlers = function () {
-    this.matrix.on("add", this.render.bind(this));
-    this.matrix.on("merge", this.render.bind(this));
+    var _this = this;
+
+    this.matrix.on("add", function (_a) {
+      var nextPos = _a.nextPos,
+          number = _a.number;
+
+      _this.animateNext(nextPos, number).then(function () {
+        _this.render.bind(_this)();
+      });
+    });
+    this.matrix.on("init", this.render.bind(this));
+    this.matrix.on("merge", function (merged) {
+      console.log(merged);
+
+      _this.flipMergedCards(merged).then(function () {
+        _this.render.bind(_this);
+      });
+    });
+    this.matrix.on("set-next", setNext.bind(this));
+    this.matrix.on("set-score", setScore.bind(this));
     window.addEventListener("resize", this.onResize.bind(this));
     window.addEventListener("mousedown", this.dragStart.bind(this));
     window.addEventListener("mouseup", this.dragEnd.bind(this));
@@ -546,6 +605,75 @@ function () {
     window.addEventListener("touchend", this.dragEnd.bind(this));
     window.addEventListener("touchmove", this.dragging.bind(this));
     window.addEventListener("keydown", this.onKeyDown.bind(this));
+  };
+
+  Board.prototype.flipMergedCards = function (merged, duration) {
+    var _this = this;
+
+    if (duration === void 0) {
+      duration = 200;
+    }
+
+    var startAt = null;
+    var _a = this.direction,
+        dx = _a[0],
+        dy = _a[1];
+    var rotate = interpolateLinear(0, 180, duration);
+    var rotateDirection = this.isVertical() ? "rotateY" : "rotateX";
+    var reverseRotate = interpolateLinear(180, 0, duration);
+    merged.forEach(function (_a) {
+      var idx = _a.idx,
+          before = _a.before,
+          after = _a.after;
+
+      var _b = utils_1.toRowCol(idx),
+          row = _b[0],
+          col = _b[1];
+
+      var deMergedIdx = utils_1.toIdx([row - dx, col - dy]);
+
+      var node = _this.getCardNodeByIdx(deMergedIdx);
+
+      if (node) {
+        node.style.display = "none";
+      }
+    });
+    var halfWayDone = false;
+    return new Promise(function (resolve) {
+      if (merged.length == 0) resolve();
+
+      var step = function step(timestamp) {
+        if (!startAt) startAt = timestamp;
+        var dt = timestamp - startAt;
+        if (dt >= duration / 2) halfWayDone = true;
+        merged.forEach(function (_a) {
+          var idx = _a.idx,
+              before = _a.before,
+              after = _a.after;
+
+          var node = _this.$.querySelector(".card[idx=\"" + idx + "\"]");
+
+          var _b = utils_1.toRowCol(idx),
+              row = _b[0],
+              col = _b[1];
+
+          var x = row * _this.maxPos,
+              y = col * _this.maxPos;
+          changeCardNode(node, halfWayDone ? after : before);
+          node.style.zIndex = "20";
+          node.style.transform = "translate(" + y + "px, " + x + "px) " + rotateDirection + "(" + Math.floor(halfWayDone ? reverseRotate(dt) : rotate(dt)) + "deg)";
+        });
+
+        if (timestamp > startAt + duration) {
+          resolve();
+          return;
+        }
+
+        requestAnimationFrame(step);
+      };
+
+      requestAnimationFrame(step);
+    });
   };
 
   Board.prototype.onKeyDown = function (event) {
@@ -571,7 +699,7 @@ function () {
         break;
     }
 
-    this.translate(0, this.maxPos, 60).then(function () {
+    this.animateCards(0, this.maxPos, 60).then(function () {
       _this.move();
     });
   };
@@ -579,11 +707,11 @@ function () {
   Board.prototype.onResize = function () {
     this.setMaxPos();
     this.resizeCards();
-    this.translateCells(0);
+    this.translateCards(0);
   };
 
   Board.prototype.dragStart = function (event) {
-    var _a = this.touchEventHelper(event),
+    var _a = touchEventHelper(event),
         clientX = _a.clientX,
         clientY = _a.clientY;
 
@@ -597,12 +725,12 @@ function () {
 
     var delta = Math.min(this.maxPos, this.delta);
 
-    if (delta / this.maxPos > 0.6) {
-      this.translate(delta, this.maxPos, 70).then(function () {
+    if (delta / this.maxPos > SEMIAUTO_PUSH_RATIO) {
+      this.animateCards(delta, this.maxPos, 70).then(function () {
         _this.move();
       });
     } else {
-      this.translate(delta, 0, 70).then(function () {
+      this.animateCards(delta, 0, 70).then(function () {
         _this.isDragging = false;
         _this.direction = null;
         _this.pos = null;
@@ -615,22 +743,11 @@ function () {
     this.delta = 0;
     if (!this.direction) return;
     var merged = this.matrix.merge(this.direction);
-
-    if (merged != 0) {
-      this.matrix.add(this.direction, this.next);
-    }
-
+    if (merged > 0) this.matrix.addNext(this.direction);
     this.direction = null;
-    this.setScore();
-    this.setNext();
   };
 
-  Board.prototype.setScore = function () {
-    var score = this.matrix.getScore();
-    document.body.querySelector("#score-number").innerText = "" + score;
-  };
-
-  Board.prototype.translate = function (from, to, duration) {
+  Board.prototype.animateCards = function (from, to, duration) {
     var _this = this;
 
     if (from === void 0) {
@@ -648,12 +765,8 @@ function () {
     var isLocked = this.isMoving == true;
     this.isMoving = true;
     var startAt = null;
-    var translateCells = this.translateCells.bind(this);
-
-    function interpolate(timestamp) {
-      return (timestamp - startAt) / duration * (to - from) + from;
-    }
-
+    var translateCards = this.translateCards.bind(this);
+    var linear = interpolateLinear(from, to, duration);
     return new Promise(function (resolve, reject) {
       if (isLocked) reject();
 
@@ -662,12 +775,13 @@ function () {
 
         if (timestamp > startAt + duration) {
           resolve();
+          highlightNext(false);
           _this.isMoving = false;
-          translateCells(to);
+          translateCards(to);
           return;
         }
 
-        translateCells(interpolate(timestamp));
+        translateCards(linear(timestamp - startAt));
         requestAnimationFrame(step);
       };
 
@@ -675,35 +789,45 @@ function () {
     });
   };
 
-  Board.prototype.touchEventHelper = function (event) {
-    if (event instanceof MouseEvent) return event;
-    return event.touches[0];
-  };
+  Board.prototype.animateNext = function (nextPos, number, duration) {
+    var _this = this;
 
-  Board.prototype.getNext = function () {
-    var pick = utils_1.pickRandomOne([1, 2, 3]);
-
-    if (pick == 1 || pick == 2) {
-      var numOfOne = this.matrix.m.map(function (cell) {
-        return cell.number;
-      }).filter(function (x) {
-        return x == 1;
-      }).length;
-      var numOfTwo = this.matrix.m.map(function (cell) {
-        return cell.number;
-      }).filter(function (x) {
-        return x == 2;
-      }).length;
-      if (numOfOne > numOfTwo + 2) return 2;else if (numOfTwo > numOfOne + 2) return 1;
-      return pick;
+    if (duration === void 0) {
+      duration = 100;
     }
 
-    return 3;
-  };
+    var node = createCardNode(99);
+    var _a = this.direction,
+        dx = _a[0],
+        dy = _a[1];
+    this.$.appendChild(node);
+    changeCardNode(node, number);
+    node.style.zIndex = "10";
+    var x = interpolateLinear(nextPos[0] - dx, nextPos[0], duration);
+    var y = interpolateLinear(nextPos[1] - dy, nextPos[1], duration);
+    var opacity = interpolateLinear(0, 1, duration);
+    node.style.transform = "translate(" + y(0) * this.maxPos + "px, " + x(0) * this.maxPos + "px)";
+    this.resizeCards();
+    var startAt = null;
+    return new Promise(function (resolve, reject) {
+      var step = function step(timestamp) {
+        if (!startAt) startAt = timestamp;
+        var dt = timestamp - startAt;
+        node.style.transform = "translate(" + y(dt) * _this.maxPos + "px, " + x(dt) * _this.maxPos + "px)";
+        node.style.opacity = "" + opacity(dt);
 
-  Board.prototype.setNext = function () {
-    this.next = this.getNext();
-    document.body.querySelector("#next-number").innerText = "" + this.next;
+        if (timestamp > startAt + duration) {
+          _this.$.removeChild(node);
+
+          resolve();
+          return;
+        }
+
+        requestAnimationFrame(step);
+      };
+
+      requestAnimationFrame(step);
+    });
   };
 
   Board.prototype.dragging = function (event) {
@@ -711,7 +835,7 @@ function () {
 
     if (!this.isDragging) return;
 
-    var _a = this.touchEventHelper(event),
+    var _a = touchEventHelper(event),
         clientX = _a.clientX,
         clientY = _a.clientY;
 
@@ -742,11 +866,12 @@ function () {
       return;
     }
 
+    highlightNext(delta / this.maxPos > SEMIAUTO_PUSH_RATIO);
     this.delta = delta;
-    this.translateCells(Math.min(delta, this.maxPos));
+    this.translateCards(Math.min(delta, this.maxPos));
   };
 
-  Board.prototype.translateCells = function (delta) {
+  Board.prototype.translateCards = function (delta) {
     var _this = this;
 
     var _a;
@@ -799,12 +924,11 @@ function () {
       _this.$.appendChild(node);
     });
     this.resizeCards();
-    this.translateCells(0);
+    this.translateCards(0);
 
     if (this.matrix.getScore() != 0 && this.matrix.isFinished()) {
       alert("\uB2D8 \uC8FC\uAE08! \uB2F9\uC2E0\uC758 \uC810\uC218 [" + this.matrix.getScore() + "]");
       this.matrix.init();
-      this.setScore();
       return;
     }
   };
@@ -875,6 +999,30 @@ function createCardNode(idx) {
   }
 
   return node;
+}
+
+function interpolateLinear(from, to, duration) {
+  return function (timestamp) {
+    return timestamp / duration * (to - from) + from;
+  };
+}
+
+function touchEventHelper(event) {
+  if (event instanceof MouseEvent) return event;
+  return event.touches[0];
+}
+
+function setNext(next) {
+  document.body.querySelector("#next-number").innerText = "" + next;
+}
+
+function setScore(score) {
+  document.body.querySelector("#score-number").innerText = "" + score;
+}
+
+function highlightNext(flag) {
+  var scoreBox = document.body.querySelector("#score");
+  if (flag) scoreBox.classList.add("highlight");else scoreBox.classList.remove("highlight");
 }
 },{"./models/matrix":"models/matrix.ts","./interfaces":"interfaces.ts","./utils":"utils.ts"}],"../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/bundle-url.js":[function(require,module,exports) {
 var bundleURL = null;
@@ -1003,7 +1151,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "36529" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "46703" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};
