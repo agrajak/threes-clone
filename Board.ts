@@ -197,6 +197,13 @@ export default class Board {
       node.style.width = node.style.height = `${this.calculateCardSize()}px`;
     });
   }
+
+  hideCardByIdx(idx) {
+    const node = this.getCardNodeByIdx(idx);
+    if (node) {
+      node.style.display = "none";
+    }
+  }
   calculateCardSize() {
     const cellNode = this.$.querySelector(".cell") as HTMLDivElement;
     return cellNode.offsetHeight;
