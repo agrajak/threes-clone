@@ -21,13 +21,12 @@ body {
   column-gap: 10px;
   row-gap: 10px;
 }
-#board:not(.note) {
-}
 #board.note {
   display: flex;
   justify-content: center;
   align-items: center;
   overflow: scroll;
+  height: 100%;
 }
 #header {
   display: flex;
