@@ -9,6 +9,22 @@ export class Header {
   constructor(board) {
     this.board = board;
     this.$ = document.getElementById("header") as HTMLDivElement;
+    this.$.addEventListener("click", (event) => {
+      if (!(event.target instanceof HTMLDivElement)) return;
+      if (event.target.id == "help") {
+        if (this.board.$.classList.contains("note")) {
+          this.board.animation.flipBoard(
+            200,
+            this.board.render.bind(this.board)
+          );
+          return;
+        }
+        this.board.animation.flipBoard(
+          200,
+          this.board.renderNote.bind(this.board)
+        );
+      }
+    });
   }
   setNext(next) {
     (this.$.querySelector(

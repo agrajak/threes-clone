@@ -180,9 +180,17 @@ export default class Board {
 
   render() {
     this.$.innerHTML = "";
-    // this.$.querySelectorAll(".card").forEach((node) => {
-    //   this.$.removeChild(node);
-    // });
+    this.$.classList.remove("note");
+    for (let idx = 0; idx < 16; idx++) {
+      const cellNode = document.createElement("div");
+      cellNode.classList.add("cell");
+      cellNode.setAttribute("idx", `${idx}`);
+      this.$.appendChild(cellNode);
+    }
+
+    this.$.querySelectorAll(".card").forEach((node) => {
+      this.$.removeChild(node);
+    });
     this.matrix.iterate(([row, col, idx, cell]) => {
       if (cell.number == 0) return;
       const node = createCardNode(idx);
@@ -194,8 +202,9 @@ export default class Board {
   }
 
   renderNote() {
-    this.$.innerHTML = `도움말임 ㅋ`;
-    this.$.classList.toggle("note");
+    this.$.innerHTML = `<div class="note">
+      1과 2를 제외한 숫자는 같은 수 끼리만 합쳐질 수 있고, 1과 2는 서로만 합체 가능합니다. Threes!의 클론 사이트입니다. 방향키와 스와이프를 사용할 수 있습니다.</div>`;
+    this.$.classList.add("note");
   }
 
   resizeCards() {

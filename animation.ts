@@ -64,13 +64,30 @@ export class BoardAnimation {
       duration
     );
   }
-
+  flipBoard(duration = 200, renderer: Function) {
+    const deg = linear(0, 180, duration);
+    const board = this.board.$;
+    let isFlipped = false;
+    return animationFactory(
+      null,
+      (dt) => {
+        const halfWayDone = dt >= duration / 2;
+        if (halfWayDone && !isFlipped) {
+          isFlipped = true;
+          renderer();
+        }
+        board.style.transform = `rotateY(${
+          halfWayDone ? 180 - deg(dt) : deg(dt)
+        }deg)`;
+      },
+      duration
+    );
+  }
   flipMergedCards(merged, duration = 200) {
     const maxPos = this.board.calculateMaxPos();
     const [dx, dy] = this.board.direction;
-    const rotate = linear(0, 180, duration);
+    const deg = linear(0, 180, duration);
     const rotateDirection = this.board.isVertical() ? "rotateY" : "rotateX";
-    const reverseRotate = linear(180, 0, duration);
 
     if (merged.length == 0) return Promise.resolve();
 
@@ -82,6 +99,7 @@ export class BoardAnimation {
       null,
       (dt) => {
         const halfWayDone = dt >= duration / 2;
+
         merged.forEach(({ idx, row, col, before, after }) => {
           const node = this.board.getCardNodeByIdx(idx);
           const x = row * maxPos,
@@ -91,7 +109,7 @@ export class BoardAnimation {
 
           node.style.zIndex = `20`;
           node.style.transform = `translate(${y}px, ${x}px) ${rotateDirection}(${Math.floor(
-            halfWayDone ? reverseRotate(dt) : rotate(dt)
+            halfWayDone ? 180 - deg(dt) : deg(dt)
           )}deg)`;
         });
       },
