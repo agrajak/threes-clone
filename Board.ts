@@ -16,8 +16,10 @@ const DURATION = 200;
 const SEMIAUTO_PUSH_RATIO = 0.6;
 export default class Board {
   $: HTMLDivElement;
-  matrix = new Matrix();
   header: Header;
+  animation: BoardAnimation;
+  matrix = new Matrix();
+
   isDragging = false;
   direction: Direction;
   delta = 0;
@@ -25,11 +27,10 @@ export default class Board {
   x = null;
   y = null;
   isMoving = false;
-  animation: BoardAnimation;
 
   constructor() {
     this.$ = document.getElementById("board") as HTMLDivElement;
-    this.header = new Header();
+    this.header = new Header(this);
     this.animation = new BoardAnimation(this);
     this.bindHandlers();
     this.matrix.init();
@@ -178,9 +179,10 @@ export default class Board {
   }
 
   render() {
-    this.$.querySelectorAll(".card").forEach((node) => {
-      this.$.removeChild(node);
-    });
+    this.$.innerHTML = "";
+    // this.$.querySelectorAll(".card").forEach((node) => {
+    //   this.$.removeChild(node);
+    // });
     this.matrix.iterate(([row, col, idx, cell]) => {
       if (cell.number == 0) return;
       const node = createCardNode(idx);
@@ -189,6 +191,11 @@ export default class Board {
     });
     this.resizeCards();
     this.translateCards(0);
+  }
+
+  renderNote() {
+    this.$.innerHTML = `도움말임 ㅋ`;
+    this.$.classList.toggle("note");
   }
 
   resizeCards() {

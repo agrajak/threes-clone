@@ -1,10 +1,13 @@
 import { animationFactory, linear } from "./animation";
+import Board from "./Board";
 
 export class Header {
   $: HTMLDivElement;
   score: number = 0;
   next: number;
-  constructor() {
+  board: Board;
+  constructor(board) {
+    this.board = board;
     this.$ = document.getElementById("header") as HTMLDivElement;
   }
   setNext(next) {
