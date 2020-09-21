@@ -134,7 +134,9 @@ exports.DOWN = [1, 0];
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.pickRandomOne = exports.toIdx = exports.toRowCol = exports.getRandomPoint = exports.getOneOrTwo = exports.getRandomInt = void 0;
+exports.touchEventHelper = exports.createCardNode = exports.changeCardNode = exports.getDirectionFromMovement = exports.pickRandomOne = exports.toIdx = exports.toRowCol = exports.getRandomPoint = exports.getOneOrTwo = exports.getRandomInt = void 0;
+
+var interfaces_1 = require("./interfaces");
 
 function getRandomInt(max) {
   if (max === void 0) {
@@ -177,7 +179,51 @@ function pickRandomOne(arr) {
 }
 
 exports.pickRandomOne = pickRandomOne;
-},{}],"models/index.ts":[function(require,module,exports) {
+
+function getDirectionFromMovement(movementX, movementY) {
+  if (Math.abs(movementX) > Math.abs(movementY)) {
+    if (movementX > 0) return interfaces_1.RIGHT;else return interfaces_1.LEFT;
+  } else {
+    if (movementY > 0) return interfaces_1.DOWN;else return interfaces_1.UP;
+  }
+}
+
+exports.getDirectionFromMovement = getDirectionFromMovement;
+
+function changeCardNode(node, value) {
+  node.innerText = "" + value;
+
+  if (value == 0) {
+    node.classList.remove("card");
+  } else {
+    node.classList.add("card");
+  }
+
+  node.setAttribute("value", value + "");
+}
+
+exports.changeCardNode = changeCardNode;
+
+function createCardNode(idx) {
+  var node = document.createElement("div");
+  node.classList.add("card");
+
+  if (idx !== undefined) {
+    node.setAttribute("idx", idx);
+  }
+
+  return node;
+}
+
+exports.createCardNode = createCardNode;
+
+function touchEventHelper(event) {
+  if (event instanceof MouseEvent) return event;
+  return event.touches[0];
+}
+
+exports.touchEventHelper = touchEventHelper;
+},{"./interfaces":"interfaces.ts"}],"models/index.ts":[function(require,module,exports) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -573,9 +619,11 @@ function isMergable(a, b) {
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.linear = exports.BoardAnimation = exports.animationBuilder = void 0;
+exports.delay = exports.linear = exports.BoardAnimation = exports.animationFactory = void 0;
 
-function animationBuilder(onResolve, onRun, duration) {
+var utils_1 = require("./utils");
+
+function animationFactory(onResolve, onRun, duration) {
   if (duration === void 0) {
     duration = 100;
   }
@@ -586,12 +634,13 @@ function animationBuilder(onResolve, onRun, duration) {
       if (!startAt) startAt = timestamp;
 
       if (timestamp > startAt + duration) {
-        onResolve && onResolve();
+        if (onRun) onRun(duration);
+        if (onResolve) onResolve();
         resolve();
         return;
       }
 
-      onRun && onRun(timestamp - startAt);
+      if (onRun) onRun(timestamp - startAt);
       requestAnimationFrame(step);
     };
 
@@ -599,7 +648,7 @@ function animationBuilder(onResolve, onRun, duration) {
   });
 }
 
-exports.animationBuilder = animationBuilder;
+exports.animationFactory = animationFactory;
 
 var BoardAnimation =
 /** @class */
@@ -607,6 +656,115 @@ function () {
   function BoardAnimation(board) {
     this.board = board;
   }
+
+  BoardAnimation.prototype.animateCards = function (from, to, duration) {
+    var _this = this;
+
+    if (from === void 0) {
+      from = 0;
+    }
+
+    if (to === void 0) {
+      to = 1;
+    }
+
+    if (duration === void 0) {
+      duration = 100;
+    }
+
+    var delta = linear(from, to, duration);
+    return animationFactory(null, function (dt) {
+      return _this.board.translateCards(delta(dt));
+    }, duration);
+  };
+
+  BoardAnimation.prototype.animateNext = function (nextPos, number, duration) {
+    var _this = this;
+
+    if (duration === void 0) {
+      duration = 100;
+    }
+
+    var node = utils_1.createCardNode(99);
+    this.board.$.appendChild(node);
+    utils_1.changeCardNode(node, number);
+    node.style.zIndex = "10";
+    var _a = this.board.direction,
+        dx = _a[0],
+        dy = _a[1];
+    var maxPos = this.board.calculateMaxPos();
+    var x = linear(nextPos[0] - dx, nextPos[0], duration);
+    var y = linear(nextPos[1] - dy, nextPos[1], duration);
+    var opacity = linear(0, 1, duration);
+    node.style.transform = "translate(" + y(0) * maxPos + "px, " + x(0) * maxPos + "px)";
+    this.board.resizeCards();
+    return animationFactory(function () {
+      _this.board.$.removeChild(node);
+    }, function (dt) {
+      node.style.transform = "translate(" + y(dt) * maxPos + "px, " + x(dt) * maxPos + "px)";
+      node.style.opacity = "" + opacity(dt);
+    }, duration);
+  };
+
+  BoardAnimation.prototype.flipBoard = function (duration, renderer) {
+    if (duration === void 0) {
+      duration = 200;
+    }
+
+    var deg = linear(0, 180, duration);
+    var board = this.board.$;
+    var isFlipped = false;
+    return animationFactory(null, function (dt) {
+      var halfWayDone = dt >= duration / 2;
+
+      if (halfWayDone && !isFlipped) {
+        isFlipped = true;
+        renderer();
+      }
+
+      board.style.transform = "rotateY(" + (halfWayDone ? 180 - deg(dt) : deg(dt)) + "deg)";
+    }, duration);
+  };
+
+  BoardAnimation.prototype.flipMergedCards = function (merged, duration) {
+    var _this = this;
+
+    if (duration === void 0) {
+      duration = 200;
+    }
+
+    var maxPos = this.board.calculateMaxPos();
+    var _a = this.board.direction,
+        dx = _a[0],
+        dy = _a[1];
+    var deg = linear(0, 180, duration);
+    var rotateDirection = this.board.isVertical() ? "rotateY" : "rotateX";
+    if (merged.length == 0) return Promise.resolve();
+    merged.forEach(function (_a) {
+      var row = _a.row,
+          col = _a.col;
+
+      _this.board.hideCardByIdx(utils_1.toIdx([row - dx, col - dy]));
+    });
+    return animationFactory(null, function (dt) {
+      var halfWayDone = dt >= duration / 2;
+      merged.forEach(function (_a) {
+        var idx = _a.idx,
+            row = _a.row,
+            col = _a.col,
+            before = _a.before,
+            after = _a.after;
+
+        var node = _this.board.getCardNodeByIdx(idx);
+
+        var x = row * maxPos,
+            y = col * maxPos;
+        utils_1.changeCardNode(node, halfWayDone ? after : before);
+        node.style.zIndex = "20";
+        node.style.transform = "translate(" + y + "px, " + x + "px) " + rotateDirection + "(" + Math.floor(halfWayDone ? 180 - deg(dt) : deg(dt)) + "deg)";
+      });
+    }, duration);
+  };
 
   return BoardAnimation;
 }();
@@ -620,7 +778,21 @@ function linear(from, to, duration) {
 }
 
 exports.linear = linear;
-},{}],"Header.ts":[function(require,module,exports) {
+
+function delay(ms) {
+  if (ms === void 0) {
+    ms = 0;
+  }
+
+  return new Promise(function (resolve) {
+    setTimeout(function () {
+      return resolve();
+    }, ms);
+  });
+}
+
+exports.delay = delay;
+},{"./utils":"utils.ts"}],"Header.ts":[function(require,module,exports) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -633,9 +805,25 @@ var animation_1 = require("./animation");
 var Header =
 /** @class */
 function () {
-  function Header() {
+  function Header(board) {
+    var _this = this;
+
     this.score = 0;
+    this.board = board;
     this.$ = document.getElementById("header");
+    this.$.addEventListener("click", function (event) {
+      if (!(event.target instanceof HTMLDivElement)) return;
+
+      if (event.target.id == "help") {
+        if (_this.board.$.classList.contains("note")) {
+          _this.board.animation.flipBoard(200, _this.board.render.bind(_this.board));
+
+          return;
+        }
+
+        _this.board.animation.flipBoard(200, _this.board.renderNote.bind(_this.board));
+      }
+    });
   }
 
   Header.prototype.setNext = function (next) {
@@ -648,7 +836,7 @@ function () {
 
     var duration = 200;
     var dScore = animation_1.linear(this.score, score, duration);
-    var animation = animation_1.animationBuilder(function () {}, function (dt) {
+    var animation = animation_1.animationFactory(null, function (dt) {
       _this.displayScore(Math.floor(dScore(dt)));
     }, duration);
     console.log(animation);
@@ -701,7 +889,8 @@ function () {
     this.y = null;
     this.isMoving = false;
     this.$ = document.getElementById("board");
-    this.header = new Header_1.Header();
+    this.header = new Header_1.Header(this);
+    this.animation = new animation_1.BoardAnimation(this);
     this.bindHandlers();
     this.matrix.init();
   }
@@ -713,7 +902,7 @@ function () {
       var nextPos = _a.nextPos,
           number = _a.number;
 
-      _this.animateNext(nextPos, number).then(function () {
+      _this.animation.animateNext(nextPos, number).then(function () {
         _this.render.bind(_this)();
 
         if (_this.matrix.getScore() != 0 && _this.matrix.isFinished()) {
@@ -728,7 +917,7 @@ function () {
     });
     this.matrix.on("init", this.render.bind(this));
     this.matrix.on("merge", function (merged) {
-      _this.flipMergedCards(merged);
+      _this.animation.flipMergedCards(merged);
     });
     this.matrix.on("set-next", this.header.setNext.bind(this.header));
     this.matrix.on("set-score", this.header.setScore.bind(this.header));
@@ -741,68 +930,6 @@ function () {
     window.addEventListener("touchend", this.dragEnd.bind(this));
     window.addEventListener("touchmove", this.dragging.bind(this));
     window.addEventListener("keydown", this.onKeyDown.bind(this));
-  };
-
-  Board.prototype.flipMergedCards = function (merged, duration) {
-    var _this = this;
-
-    if (duration === void 0) {
-      duration = 200;
-    }
-
-    var startAt = null;
-    var maxPos = this.calculateMaxPos();
-    var _a = this.direction,
-        dx = _a[0],
-        dy = _a[1];
-    var rotate = animation_1.linear(0, 180, duration);
-    var rotateDirection = this.isVertical() ? "rotateY" : "rotateX";
-    var reverseRotate = animation_1.linear(180, 0, duration);
-    merged.forEach(function (_a) {
-      var row = _a.row,
-          col = _a.col;
-      var deMergedIdx = utils_1.toIdx([row - dx, col - dy]);
-
-      var node = _this.getCardNodeByIdx(deMergedIdx);
-
-      if (node) {
-        node.style.display = "none";
-      }
-    });
-    var halfWayDone = false;
-    return new Promise(function (resolve) {
-      if (merged.length == 0) resolve();
-
-      var step = function step(timestamp) {
-        if (!startAt) startAt = timestamp;
-        var dt = timestamp - startAt;
-        if (dt >= duration / 2) halfWayDone = true;
-        merged.forEach(function (_a) {
-          var idx = _a.idx,
-              row = _a.row,
-              col = _a.col,
-              before = _a.before,
-              after = _a.after;
-
-          var node = _this.getCardNodeByIdx(idx);
-
-          var x = row * maxPos,
-              y = col * maxPos;
-          changeCardNode(node, halfWayDone ? after : before);
-          node.style.zIndex = "20";
-          node.style.transform = "translate(" + y + "px, " + x + "px) " + rotateDirection + "(" + Math.floor(halfWayDone ? reverseRotate(dt) : rotate(dt)) + "deg)";
-        });
-
-        if (timestamp > startAt + duration) {
-          resolve();
-          return;
-        }
-
-        requestAnimationFrame(step);
-      };
-
-      requestAnimationFrame(step);
-    });
   };
 
   Board.prototype.onKeyDown = function (event) {
@@ -831,7 +958,7 @@ function () {
     }
 
     if (!this.direction) return;
-    this.animateCards(0, maxPos, 60).then(function () {
+    this.animation.animateCards(0, maxPos, 60).then(function () {
       _this.matrix.move(_this.direction);
     });
   };
@@ -842,7 +969,7 @@ function () {
   };
 
   Board.prototype.dragStart = function (event) {
-    var _a = touchEventHelper(event),
+    var _a = utils_1.touchEventHelper(event),
         clientX = _a.clientX,
         clientY = _a.clientY;
 
@@ -858,7 +985,7 @@ function () {
     var delta = Math.min(maxPos, this.delta);
 
     if (delta / maxPos > SEMIAUTO_PUSH_RATIO) {
-      this.animateCards(delta, maxPos, 70).then(function () {
+      this.animation.animateCards(delta, maxPos, 70).then(function () {
         _this.matrix.move(_this.direction);
 
         _this.header.highlightNext(false);
@@ -868,7 +995,7 @@ function () {
         _this.direction = null;
       });
     } else {
-      this.animateCards(delta, 0, 70).then(function () {
+      this.animation.animateCards(delta, 0, 70).then(function () {
         _this.isDragging = false;
         _this.direction = null;
         _this.pos = null;
@@ -876,88 +1003,10 @@ function () {
     }
   };
 
-  Board.prototype.animateCards = function (from, to, duration) {
-    if (from === void 0) {
-      from = 0;
-    }
-
-    if (to === void 0) {
-      to = 1;
-    }
-
-    if (duration === void 0) {
-      duration = 100;
-    }
-
-    var isLocked = this.isMoving == true;
-    var startAt = null;
-    var translateCards = this.translateCards.bind(this);
-    var d = animation_1.linear(from, to, duration);
-    return new Promise(function (resolve, reject) {
-      var step = function step(timestamp) {
-        if (!startAt) startAt = timestamp;
-        var dt = timestamp - startAt;
-
-        if (timestamp > startAt + duration) {
-          resolve();
-          translateCards(to);
-          return;
-        }
-
-        translateCards(d(dt));
-        requestAnimationFrame(step);
-      };
-
-      requestAnimationFrame(step);
-    });
-  };
-
-  Board.prototype.animateNext = function (nextPos, number, duration) {
-    var _this = this;
-
-    if (duration === void 0) {
-      duration = 100;
-    }
-
-    var node = createCardNode(99);
-    var _a = this.direction,
-        dx = _a[0],
-        dy = _a[1];
-    this.$.appendChild(node);
-    changeCardNode(node, number);
-    node.style.zIndex = "10";
-    var x = animation_1.linear(nextPos[0] - dx, nextPos[0], duration);
-    var y = animation_1.linear(nextPos[1] - dy, nextPos[1], duration);
-    var maxPos = this.calculateMaxPos();
-    var opacity = animation_1.linear(0, 1, duration);
-    node.style.transform = "translate(" + y(0) * maxPos + "px, " + x(0) * maxPos + "px)";
-    this.resizeCards();
-    var startAt = null;
-    return new Promise(function (resolve, reject) {
-      var step = function step(timestamp) {
-        if (!startAt) startAt = timestamp;
-        var dt = timestamp - startAt;
-        node.style.transform = "translate(" + y(dt) * maxPos + "px, " + x(dt) * maxPos + "px)";
-        node.style.opacity = "" + opacity(dt);
-
-        if (timestamp > startAt + duration) {
-          _this.$.removeChild(node);
-
-          resolve();
-          return;
-        }
-
-        requestAnimationFrame(step);
-      };
-
-      requestAnimationFrame(step);
-    });
-  };
-
   Board.prototype.dragging = function (event) {
     if (!this.isDragging) return;
 
-    var _a = touchEventHelper(event),
+    var _a = utils_1.touchEventHelper(event),
         clientX = _a.clientX,
         clientY = _a.clientY;
 
@@ -967,7 +1016,7 @@ function () {
     if (dx == 0 && dy == 0) return;
     this.x = clientX;
     this.y = clientY;
-    var direction = getDirectionFromMovement(dx, dy);
+    var direction = utils_1.getDirectionFromMovement(dx, dy);
 
     if (!this.direction) {
       this.direction = direction;
@@ -1030,6 +1079,16 @@ function () {
   Board.prototype.render = function () {
     var _this = this;
 
+    this.$.innerHTML = "";
+    this.$.classList.remove("note");
+
+    for (var idx = 0; idx < 16; idx++) {
+      var cellNode = document.createElement("div");
+      cellNode.classList.add("cell");
+      cellNode.setAttribute("idx", "" + idx);
+      this.$.appendChild(cellNode);
+    }
+
     this.$.querySelectorAll(".card").forEach(function (node) {
       _this.$.removeChild(node);
     });
@@ -1039,13 +1098,18 @@ function () {
           idx = _a[2],
           cell = _a[3];
       if (cell.number == 0) return;
-      var node = createCardNode(idx);
-      changeCardNode(node, cell.number);
+      var node = utils_1.createCardNode(idx);
+      utils_1.changeCardNode(node, cell.number);
 
       _this.$.appendChild(node);
     });
     this.resizeCards();
     this.translateCards(0);
+  };
+
+  Board.prototype.renderNote = function () {
+    this.$.innerHTML = "<div class=\"note\">\n      1\uACFC 2\uB97C \uC81C\uC678\uD55C \uC22B\uC790\uB294 \uAC19\uC740 \uC218 \uB07C\uB9AC\uB9CC \uD569\uCCD0\uC9C8 \uC218 \uC788\uACE0, 1\uACFC 2\uB294 \uC11C\uB85C\uB9CC \uD569\uCCB4 \uAC00\uB2A5\uD569\uB2C8\uB2E4. Threes!\uC758 \uD074\uB860 \uC0AC\uC774\uD2B8\uC785\uB2C8\uB2E4. \uBC29\uD5A5\uD0A4\uC640 \uC2A4\uC640\uC774\uD504\uB97C \uC0AC\uC6A9\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.</div>";
+    this.$.classList.add("note");
   };
 
   Board.prototype.resizeCards = function () {
@@ -1055,6 +1119,14 @@ function () {
       if (!(node instanceof HTMLDivElement)) return;
       node.style.width = node.style.height = _this.calculateCardSize() + "px";
     });
+  };
+
+  Board.prototype.hideCardByIdx = function (idx) {
+    var node = this.getCardNodeByIdx(idx);
+
+    if (node) {
+      node.style.display = "none";
+    }
   };
 
   Board.prototype.calculateCardSize = function () {
@@ -1084,43 +1156,7 @@ function () {
 }();
 
 exports.default = Board;
-
-function getDirectionFromMovement(movementX, movementY) {
-  if (Math.abs(movementX) > Math.abs(movementY)) {
-    if (movementX > 0) return interfaces_1.RIGHT;else return interfaces_1.LEFT;
-  } else {
-    if (movementY > 0) return interfaces_1.DOWN;else return interfaces_1.UP;
-  }
-}
-
-function changeCardNode(node, value) {
-  node.innerText = "" + value;
-
-  if (value == 0) {
-    node.classList.remove("card");
-  } else {
-    node.classList.add("card");
-  }
-
-  node.setAttribute("value", value + "");
-}
-
-function createCardNode(idx) {
-  var node = document.createElement("div");
-  node.classList.add("card");
-
-  if (idx !== undefined) {
-    node.setAttribute("idx", idx);
-  }
-
-  return node;
-}
-
-function touchEventHelper(event) {
-  if (event instanceof MouseEvent) return event;
-  return event.touches[0];
-}
-},{"./models/matrix":"models/matrix.ts","./interfaces":"interfaces.ts","./utils":"utils.ts","./Header":"Header.ts","./animation":"animation.ts"}],"../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/bundle-url.js":[function(require,module,exports) {
+},{"./models/matrix":"models/matrix.ts","./interfaces":"interfaces.ts","./utils":"utils.ts","./Header":"Header.ts","./animation":"animation.ts"}],"../AppData/Roaming/npm/node_modules/parcel-bundler/src/builtins/bundle-url.js":[function(require,module,exports) {
 var bundleURL = null;
 
 function getBundleURLCached() {
@@ -1152,7 +1188,7 @@ function getBaseURL(url) {
 
 exports.getBundleURL = getBundleURLCached;
 exports.getBaseURL = getBaseURL;
-},{}],"../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/css-loader.js":[function(require,module,exports) {
+},{}],"../AppData/Roaming/npm/node_modules/parcel-bundler/src/builtins/css-loader.js":[function(require,module,exports) {
 var bundle = require('./bundle-url');
 
 function updateLink(link) {
@@ -1187,17 +1223,17 @@ function reloadCSS() {
 }
 
 module.exports = reloadCSS;
-},{"./bundle-url":"../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/bundle-url.js"}],"styles/index.css":[function(require,module,exports) {
+},{"./bundle-url":"../AppData/Roaming/npm/node_modules/parcel-bundler/src/builtins/bundle-url.js"}],"styles/index.css":[function(require,module,exports) {
 var reloadCSS = require('_css_loader');
 
 module.hot.dispose(reloadCSS);
 module.hot.accept(reloadCSS);
-},{"_css_loader":"../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/css-loader.js"}],"styles/cards.css":[function(require,module,exports) {
+},{"_css_loader":"../AppData/Roaming/npm/node_modules/parcel-bundler/src/builtins/css-loader.js"}],"styles/cards.css":[function(require,module,exports) {
 var reloadCSS = require('_css_loader');
 
 module.hot.dispose(reloadCSS);
 module.hot.accept(reloadCSS);
-},{"_css_loader":"../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/css-loader.js"}],"index.ts":[function(require,module,exports) {
+},{"_css_loader":"../AppData/Roaming/npm/node_modules/parcel-bundler/src/builtins/css-loader.js"}],"index.ts":[function(require,module,exports) {
 "use strict";
 
 var __importDefault = this && this.__importDefault || function (mod) {
@@ -1219,7 +1255,7 @@ require("./styles/cards.css");
 (function () {
   new Board_1.default();
 })();
-},{"./Board":"Board.ts","./styles/index.css":"styles/index.css","./styles/cards.css":"styles/cards.css"}],"../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
+},{"./Board":"Board.ts","./styles/index.css":"styles/index.css","./styles/cards.css":"styles/cards.css"}],"../AppData/Roaming/npm/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
 var OVERLAY_ID = '__parcel__error__overlay__';
 var OldModule = module.bundle.Module;
@@ -1247,7 +1283,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "39181" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "5870" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};
@@ -1423,5 +1459,5 @@ function hmrAcceptRun(bundle, id) {
     return true;
   }
 }
-},{}]},{},["../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/hmr-runtime.js","index.ts"], null)
-//# sourceMappingURL=/threes-clone.77de5100.js.map
+},{}]},{},["../AppData/Roaming/npm/node_modules/parcel-bundler/src/builtins/hmr-runtime.js","index.ts"], null)
+//# sourceMappingURL=/threes.77de5100.js.map

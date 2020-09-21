@@ -13,13 +13,20 @@ body {
 #board {
   max-width: 600px;
   max-height: 600px;
-  display: grid;
   width: 100%;
+  overflow: hidden;
+  display: grid;
   grid-template-columns: repeat(4, 1fr);
   grid-template-rows: repeat(4, 1fr);
   column-gap: 10px;
   row-gap: 10px;
-  overflow: hidden;
+}
+#board.note {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: scroll;
+  height: 100%;
 }
 #header {
   display: flex;
@@ -79,4 +86,4 @@ body {
 }
 
 
-/*# sourceMappingURL=/threes-clone.77de5100.css.map */
+/*# sourceMappingURL=/threes.77de5100.css.map */
